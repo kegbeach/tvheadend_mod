@@ -586,7 +586,7 @@ tvheadend.mdhelp = function(pagename) {
         msg = _('There\'s no documentation available, or there was a problem loading the page.\n\n') +
               _('**You\'ll also see this page if you try and view documentation (for a feature) not included with your version of Tvheadend.**\n\n\n\n') +
               _('Please take a look at the other Help pages (Table of Contents), if you still can\'t find what you\'re ') +
-              _('looking for please see the [Wiki](http://tvheadend.org/projects/tvheadend/wiki) ') +
+              _('looking for please see the [documentation](http://docs.tvheadend.org/documentation) ') +
               _('or join the [IRC channel on libera](https://web.libera.chat/?nick=tvhhelp|?#hts).');
 
         // Fake the result.
@@ -694,7 +694,7 @@ tvheadend.loading = function(on) {
 tvheadend.PagingToolbarConf = function(conf, title, auto, count)
 {
   conf.width = 50;
-  conf.pageSize = 50;
+  conf.pageSize = tvheadend.page_size;
   conf.displayInfo = true;
                     /// {0} start, {1} end, {2} total, {3} title
   conf.displayMsg = _('{3} {0} - {1} of {2}').replace('{3}', title);
@@ -1024,6 +1024,7 @@ function accessUpdate(o) {
     tvheadend.chname_src = o.chname_src ? 1 : 0;
     tvheadend.date_mask = o.date_mask;
     tvheadend.label_formatting = o.label_formatting ? true : false;
+    tvheadend.page_size = o.page_size;
 
     if (o.uilevel_nochange)
         tvheadend.uilevel_nochange = true;

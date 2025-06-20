@@ -51,7 +51,7 @@
 
 static void *htsp_server, *htsp_server_2;
 
-#define HTSP_PROTO_VERSION 42
+#define HTSP_PROTO_VERSION 43
 
 #define HTSP_ASYNC_OFF  0x00
 #define HTSP_ASYNC_ON   0x01
@@ -1430,6 +1430,8 @@ htsp_build_event
     htsmsg_add_u32(out, "copyrightYear", e->copyright_year);
   if (e->first_aired)
     htsmsg_add_s64(out, "firstAired", e->first_aired);
+  if (e->is_new)
+    htsmsg_add_u32(out, "isNew", e->is_new);
   epg_broadcast_get_epnum(e, &epnum);
   htsp_serialize_epnum(out, &epnum, NULL);
   if (!strempty(e->image))
@@ -2042,13 +2044,12 @@ htsp_method_addDvrEntry(htsp_connection_t *htsp, htsmsg_t *in)
   conf = htsmsg_create_map();
   htsmsg_copy_field(conf, "enabled", in, NULL);
   s = htsmsg_get_str(in, "configName");
-  if (s) {
-    dvr_conf = dvr_config_find_by_uuid(s);
-    if (dvr_conf == NULL)
-      dvr_conf = dvr_config_find_by_name(s);
+  dvr_conf = dvr_config_find_by_list(htsp->htsp_granted_access->aa_dvrcfgs, s);
     if (dvr_conf)
+  {
       htsmsg_add_uuid(conf, "config_name", &dvr_conf->dvr_id.in_uuid);
   }
+  
   htsmsg_copy_field(conf, "start_extra", in, "startExtra");
   htsmsg_copy_field(conf, "stop_extra", in, "stopExtra");
   htsmsg_copy_field(conf, "pri", in, "priority");
