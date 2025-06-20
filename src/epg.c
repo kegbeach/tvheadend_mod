@@ -109,7 +109,7 @@ void epg_updated ( void )
  * Object (Generic routines)
  * *************************************************************************/
 
-static void _epg_object_destroy 
+static void _epg_object_destroy
   ( epg_object_t *eo, epg_object_tree_t *tree )
 {
   assert(eo->refcount == 0);
@@ -475,7 +475,7 @@ int epg_channel_ignore_broadcast(channel_t *ch, time_t start)
   return 0;
 }
 
-static void _epg_channel_rem_broadcast 
+static void _epg_channel_rem_broadcast
   ( channel_t *ch, epg_broadcast_t *ebc, epg_broadcast_t *ebc_new )
 {
   RB_REMOVE(&ch->ch_epg_schedule, ebc, sched_link);
@@ -533,7 +533,7 @@ static void _epg_channel_timer_callback ( void *p )
     }
     break;
   }
-  
+
   /* Change (update HTSP) */
   if (cur != ch->ch_epg_now || nxt != ch->ch_epg_next) {
     tvhdebug(LS_EPG, "now/next %u/%u set on %s",
@@ -557,7 +557,7 @@ static void _epg_channel_timer_callback ( void *p )
   if (nxt) nxt->ops->putref(nxt);
 }
 
-static epg_broadcast_t *_epg_channel_add_broadcast 
+static epg_broadcast_t *_epg_channel_add_broadcast
   ( channel_t *ch, epg_broadcast_t **bcast, epggrab_module_t *src,
     int create, int *save, epg_changes_t *changed )
 {
@@ -624,7 +624,7 @@ static epg_broadcast_t *_epg_channel_add_broadcast
       }
     }
   }
-  
+
   /* Changed */
   *save |= 1;
 
@@ -988,6 +988,8 @@ int epg_broadcast_change_finish
     save |= epg_broadcast_set_star_rating(broadcast, 0, NULL);
   if (!(changes & EPG_CHANGED_AGE_RATING))
     save |= epg_broadcast_set_age_rating(broadcast, 0, NULL);
+  if (!(changes & EPG_CHANGED_RATING_LABEL))
+    save |= epg_broadcast_set_rating_label(broadcast, 0, NULL);
   if (!(changes & EPG_CHANGED_IMAGE))
     save |= epg_broadcast_set_image(broadcast, NULL, NULL);
   if (!(changes & EPG_CHANGED_GENRE))
@@ -1051,6 +1053,7 @@ epg_broadcast_t *epg_broadcast_clone
     *save |= epg_broadcast_set_is_repeat(ebc, src->is_repeat, &changes);
     *save |= epg_broadcast_set_star_rating(ebc, src->star_rating, &changes);
     *save |= epg_broadcast_set_age_rating(ebc, src->age_rating, &changes);
+    *save |= epg_broadcast_set_rating_label(ebc, src->rating_label, &changes);
     *save |= epg_broadcast_set_image(ebc, src->image, &changes);
     *save |= epg_broadcast_set_genre(ebc, &src->genre, &changes);
     *save |= epg_broadcast_set_title(ebc, src->title, &changes);
@@ -1061,7 +1064,6 @@ epg_broadcast_t *epg_broadcast_clone
     *save |= epg_broadcast_set_credits(ebc, src->credits, &changes);
     *save |= epg_broadcast_set_category(ebc, src->category, &changes);
     *save |= epg_broadcast_set_keyword(ebc, src->keyword, &changes);
-    *save |= epg_broadcast_set_description(ebc, src->description, &changes);
     *save |= epg_broadcast_set_serieslink_uri
                (ebc, src->serieslink ? src->serieslink->uri : NULL, &changes);
     *save |= epg_broadcast_set_episodelink_uri
@@ -1083,7 +1085,7 @@ epg_broadcast_t *epg_broadcast_find_by_eid ( channel_t *ch, uint16_t eid )
 {
   epg_broadcast_t *e;
   RB_FOREACH(e, &ch->ch_epg_schedule, sched_link) {
-    if (e->dvb_eid == eid) return e;
+    if (e->dvb_eid == eid && e->stop > gclk()) return e;
   }
   return NULL;
 }
@@ -1107,7 +1109,7 @@ static int _epg_broadcast_set_set
   if (*set == NULL) {
     if (uri == NULL || uri[0] == '\0')
       return 0;
-  } else if (strcmp((*set)->uri ?: "", uri ?: "")) {
+  } else if (strcmp((*set)->uri, uri ?: "")) {
     epg_set_broadcast_remove(tree, *set, ebc);
   } else {
     return 0;
@@ -1415,7 +1417,7 @@ int epg_broadcast_set_genre
     }
     g1 = g2;
   }
-  
+
   /* Insert all entries */
   if (genre) {
     LIST_FOREACH(g1, genre, link)
@@ -1439,6 +1441,20 @@ int epg_broadcast_set_age_rating
   if (!b) return 0;
   return _epg_object_set_u8(b, &b->age_rating, age,
                             changed, EPG_CHANGED_AGE_RATING);
+}
+
+int epg_broadcast_set_rating_label
+  ( epg_broadcast_t *b, ratinglabel_t *rating_label, epg_changes_t *changed )
+{
+  if (!b || !rating_label) return 0;
+
+  if(rating_label != b->rating_label){
+    b->rating_label = rating_label;
+    if (changed) *changed |= EPG_CHANGED_RATING_LABEL;
+    return 1;
+  }
+
+  return 0;
 }
 
 int epg_broadcast_set_first_aired
@@ -1476,6 +1492,11 @@ const char *epg_broadcast_get_subtitle ( epg_broadcast_t *b, const char *lang )
 {
   if (!b || !b->subtitle) return NULL;
   return lang_str_get(b->subtitle, lang);
+}
+const ratinglabel_t *epg_broadcast_get_rating_label ( epg_broadcast_t *b )
+{
+  if (!b || !b->rating_label) return NULL;
+  return b->rating_label;
 }
 
 const char *epg_broadcast_get_summary ( epg_broadcast_t *b, const char *lang )
@@ -1562,6 +1583,10 @@ htsmsg_t *epg_broadcast_serialize ( epg_broadcast_t *broadcast )
     htsmsg_add_u32(m, "star", broadcast->star_rating);
   if (broadcast->age_rating)
     htsmsg_add_u32(m, "age", broadcast->age_rating);
+  if (broadcast->rating_label)
+    {
+      htsmsg_add_str(m, "ratlab", idnode_uuid_as_str((idnode_t *)(broadcast->rating_label), ubuf));
+    }
   if (broadcast->image)
     htsmsg_add_str(m, "img", broadcast->image);
   if (broadcast->title)
@@ -1662,6 +1687,12 @@ epg_broadcast_t *epg_broadcast_deserialize
     *save |= epg_broadcast_set_star_rating(ebc, u32, &changes);
   if (!htsmsg_get_u32(m, "age", &u32))
     *save |= epg_broadcast_set_age_rating(ebc, u32, &changes);
+  if ((str = htsmsg_get_str(m, "ratlab")))
+  {
+    //Convert the UUID string saved on disk into an idnode ID
+    //and then fetch the ratinglabel object.
+    *save |= epg_broadcast_set_rating_label(ebc, ratinglabel_find_from_uuid(str), &changes);
+  }
 
   if ((str = htsmsg_get_str(m, "img")))
     *save |= epg_broadcast_set_image(ebc, str, &changes);
@@ -2011,7 +2042,7 @@ int epg_genre_list_add ( epg_genre_list_t *list, epg_genre_t *genre )
     LIST_INSERT_HEAD(list, g2, link);
   } else {
     while (g1) {
-    
+
       /* Already exists */
       if (g1->code == genre->code) return 0;
 
@@ -2060,7 +2091,7 @@ int epg_genre_list_add_by_str ( epg_genre_list_t *list, const char *str, const c
 
 // Note: if partial=1 and genre is a major only category then all minor
 // entries will also match
-int epg_genre_list_contains 
+int epg_genre_list_contains
   ( epg_genre_list_t *list, epg_genre_t *genre, int partial )
 {
   uint8_t mask = 0xFF;
@@ -2488,7 +2519,7 @@ epg_query ( epg_query_t *eq, access_t *perm )
   if (channel && tag == NULL) {
     if (channel_access(channel, perm, 0))
       _eq_add_channel(eq, channel);
-  
+
   /* Tag based */
   } else if (tag) {
     idnode_list_mapping_t *ilm;

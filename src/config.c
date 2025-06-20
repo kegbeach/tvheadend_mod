@@ -17,8 +17,11 @@
  */
 
 #include <ctype.h>
+#include <limits.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "tvheadend.h"
 #include "settings.h"
@@ -53,6 +56,9 @@ struct config config;
 static char config_lock[PATH_MAX];
 static int config_lock_fd;
 static int config_scanfile_ok;
+#if ENABLE_VAAPI
+int vainfo_probe_enabled;
+#endif
 
 /* *************************************************************************
  * Config migration
@@ -132,7 +138,7 @@ config_migrate_v1_dvb_svcs
         htsmsg_add_str(svc, "svcname", str);
       if ((str = htsmsg_get_str(e, "provider")))
         htsmsg_add_str(svc, "provider", str);
-      if (!(htsmsg_get_u32(e, "type", &u32))) 
+      if (!(htsmsg_get_u32(e, "type", &u32)))
         htsmsg_add_u32(svc, "dvb_servicetype", u32);
       if (!htsmsg_get_u32(e, "channel", &u32))
         htsmsg_add_u32(svc, "lcn", u32);
@@ -140,9 +146,9 @@ config_migrate_v1_dvb_svcs
         htsmsg_add_u32(svc, "enabled", u32 ? 0 : 1);
       if ((str = htsmsg_get_str(e, "charset")))
         htsmsg_add_str(svc, "charset", str);
-      if ((str = htsmsg_get_str(e, "default_authority"))) 
+      if ((str = htsmsg_get_str(e, "default_authority")))
         htsmsg_add_str(svc, "cridauth", str);
-  
+
       // TODO: dvb_eit_enable
 
       hts_settings_save(svc, "input/linuxdvb/networks/%s/muxes/%s/services/%s",
@@ -182,7 +188,7 @@ config_migrate_v1_dvb_network
     "fec_lo",
     "fec"
   };
-    
+
 
   /* Load the adapter config */
   if (!(tun = hts_settings_load("dvbadapters/%s", name))) return;
@@ -290,7 +296,7 @@ config_migrate_v1_dvr ( const char *path, htsmsg_t *channels )
   htsmsg_t *c, *e, *m;
   htsmsg_field_t *f;
   const char *str;
-  
+
   if ((c = hts_settings_load_r(1, path))) {
     HTSMSG_FOREACH(f, c) {
       if (!(e = htsmsg_field_get_map(f))) continue;
@@ -320,7 +326,7 @@ config_migrate_v1_epggrab ( const char *path, htsmsg_t *channels )
   htsmsg_field_t *f, *f2;
   const char *str;
   uint32_t u32;
-  
+
   if ((c = hts_settings_load_r(1, path))) {
     HTSMSG_FOREACH(f, c) {
       if (!(e = htsmsg_field_get_map(f))) continue;
@@ -475,7 +481,7 @@ config_migrate_v1 ( void )
   /* Update EPG grabbers */
   hts_settings_remove("epggrab/otamux");
   config_migrate_v1_epggrab("epggrab/xmltv/channels", channels);
-  
+
   /* Save the channels */
   // Note: UUID will be stored in the file (redundant) but that's no biggy
   HTSMSG_FOREACH(f, channels) {
@@ -499,7 +505,7 @@ config_migrate_v2 ( void )
 
   /* Do we have IPTV config to migrate ? */
   if (hts_settings_exists("input/iptv/muxes")) {
-    
+
     /* Create a dummy network */
     uuid_set(&u, NULL);
     uuid_get_hex(&u, ubuf);
@@ -1483,6 +1489,7 @@ dobackup(const char *oldver)
   const char *argv[] = {
     "/usr/bin/tar", "cjf", outfile,
     "--exclude", "backup",
+    "--exclude", "recordings",
     "--exclude", "epggrab/*.sock",
     "--exclude", "timeshift/buffer",
     "--exclude", "imagecache/meta",
@@ -1560,7 +1567,7 @@ dobackup(const char *oldver)
   }
 
   if (chdir(cwd)) {
-    tvherror(LS_CONFIG, "unable to change directory to '%s'", cwd);
+    tvherror(LS_CONFIG, "unable to change directory to '%s': %s", cwd, strerror(errno));
     goto fatal;
   }
   return;
@@ -1690,12 +1697,61 @@ config_check ( void )
 
 static int config_newcfg = 0;
 
+static char *config_get_dir ( uid_t uid )
+{
+  char hts_home[PATH_MAX + sizeof("/.hts/tvheadend")]; /* Must be largest of the 3 config strings! */
+  char config_home[PATH_MAX];
+  char home_dir[PATH_MAX];
+  struct stat st;
+
+  if (uid == -1)
+    uid = getuid();
+
+  snprintf(hts_home, sizeof(hts_home), "/var/lib/tvheadend");
+  if ((stat(hts_home, &st) == 0) && (st.st_uid == uid))
+    return strndup(hts_home, sizeof(hts_home));
+
+  snprintf(hts_home, sizeof(hts_home), "/etc/tvheadend");
+  if ((stat(hts_home, &st) == 0) && (st.st_uid == uid))
+    return strndup(hts_home, sizeof(hts_home));
+
+  if (realpath(getenv("HOME"), home_dir) == NULL) {
+    tvherror(LS_CONFIG, "environment variable HOME is not set");
+    return NULL;
+  }
+
+  snprintf(hts_home, sizeof(hts_home), "%s/.hts/tvheadend", home_dir);
+  if (stat(hts_home, &st) == 0) {
+    if (S_ISLNK(st.st_mode)) {
+      char hts_home_link[PATH_MAX];
+
+      if ((readlink(hts_home, hts_home_link, sizeof(hts_home_link)) == -1) ||
+          (stat(hts_home_link, &st) == -1)) {
+        tvherror(LS_CONFIG, ".hts/tvheadend is inaccessible: %s", strerror(errno));
+        return NULL;
+      }
+      strncpy(hts_home, hts_home_link, sizeof(hts_home));
+    }
+    if (!S_ISDIR(st.st_mode)) {
+      tvherror(LS_CONFIG, ".hts/tvheadend exists, but is not a directory");
+      return NULL;
+    }
+    tvhwarn(LS_CONFIG, "Found legacy '.hts/tvheadend', consider moving this to '.config/hts' instead.");
+  } else if ((realpath(getenv("XDG_CONFIG_HOME"), config_home) != NULL) &&
+      (config_home[0] != 0)) {
+    snprintf(hts_home, sizeof(hts_home), "%s/hts", config_home);
+  } else {
+    snprintf(hts_home, sizeof(hts_home), "%s/.config/hts", home_dir);
+  }
+
+  return strndup(hts_home, sizeof(hts_home));
+}
+
 void
 config_boot
   ( const char *path, gid_t gid, uid_t uid, const char *http_user_agent )
 {
   struct stat st;
-  char buf[1024];
   htsmsg_t *config2;
   htsmsg_field_t *f;
   const char *s;
@@ -1724,43 +1780,46 @@ config_boot
   config.hdhomerun_ip = strdup("");
   config.local_ip = strdup("");
   config.local_port = 0;
-
-  idclass_register(&config_class);
-
-  satip_server_boot();
+  config.page_size_ui = 50;
 
   /* Generate default */
-  if (!path) {
-    const char *homedir = getenv("HOME");
-    if (homedir == NULL) {
-      tvherror(LS_START, "environment variable HOME is not set");
-      exit(EXIT_FAILURE);
-    }
-    snprintf(buf, sizeof(buf), "%s/.hts/tvheadend", homedir);
-    path = buf;
+  if (!path)
+    config.confdir = config_get_dir(uid);
+  else
+    config.confdir = strndup(path, PATH_MAX);
+
+  if (config.confdir == NULL) {
+    tvherror(LS_START, "unable to determine tvheadend home");
+    exit(EXIT_FAILURE);
   }
 
+  tvhinfo(LS_CONFIG, "Using configuration from '%s'", config.confdir);
+
   /* Ensure directory exists */
-  if (stat(path, &st)) {
+  if (stat(config.confdir, &st)) {
     config_newcfg = 1;
-    if (makedirs(LS_CONFIG, path, 0700, 1, gid, uid)) {
+    if (makedirs(LS_CONFIG, config.confdir, 0700, 1, gid, uid)) {
       tvhwarn(LS_START, "failed to create settings directory %s,"
-                       " settings will not be saved", path);
+                       " settings will not be saved", config.confdir);
       return;
     }
   }
 
   /* And is usable */
-  else if (access(path, R_OK | W_OK)) {
+  else if (access(config.confdir, R_OK | W_OK)) {
     tvhwarn(LS_START, "configuration path %s is not r/w"
                      " for UID:%d GID:%d [e=%s],"
                      " settings will not be saved",
-            path, getuid(), getgid(), strerror(errno));
+            config.confdir, getuid(), getgid(), strerror(errno));
     return;
   }
 
+  idclass_register(&config_class);
+
+  satip_server_boot();
+
   /* Configure settings routines */
-  hts_settings_init(path);
+  hts_settings_init(config.confdir);
 
   /* Lock it */
   hts_settings_buildpath(config_lock, sizeof(config_lock), ".lock");
@@ -1805,6 +1864,8 @@ config_boot
   if ((config.http_user_agent &&
        strncmp(config.http_user_agent, "TVHeadend/", 10) == 0) ||
       tvh_str_default(config.http_user_agent, NULL) == NULL) {
+    char buf[1024];
+
     snprintf(buf, sizeof(buf), "TVHeadend/%s", tvheadend_version);
     tvh_str_set(&config.http_user_agent, buf);
   }
@@ -1833,18 +1894,22 @@ config_init ( int backup )
     tvh_str_set(&config.realm, "tvheadend");
     tvh_str_set(&config.http_server_name, "HTS/tvheadend");
     idnode_changed(&config.idnode);
-  
+
   /* Perform migrations */
   } else {
     if (config_migrate(backup))
       config_check();
   }
+#if ENABLE_VAAPI
+  vainfo_probe_enabled = config.enable_vainfo;
+#endif
   tvhinfo(LS_CONFIG, "loaded");
 }
 
 void config_done ( void )
 {
   /* note: tvhlog is inactive !!! */
+  free(config.confdir);
   free(config.wizard);
   free(config.full_version);
   free(config.http_server_name);
@@ -2100,6 +2165,7 @@ PROP_DOC(config_picon_path)
 PROP_DOC(config_picon_servicetype)
 PROP_DOC(viewlevel_config)
 PROP_DOC(themes)
+PROP_DOC(page_size)
 
 const idclass_t config_class = {
   .ic_snode      = &config.idnode,
@@ -2135,8 +2201,12 @@ const idclass_t config_class = {
          .number = 6,
       },
       {
-         .name   = N_("Miscellaneous Settings"),
+         .name   = N_("Ports settings"),
          .number = 7,
+      },
+      {
+         .name   = N_("Miscellaneous Settings"),
+         .number = 8,
       },
       {}
   },
@@ -2188,6 +2258,17 @@ const idclass_t config_class = {
       .doc    = prop_doc_themes,
       .list   = theme_get_ui_list,
       .off    = offsetof(config_t, theme_ui),
+      .opts   = PO_DOC_NLIST,
+      .group  = 2
+    },
+    {
+      .type   = PT_U32,
+      .id     = "page_size_ui",
+      .name   = N_("Items per page"),
+      .desc   = N_("The default web interface items per page."),
+      .doc    = prop_doc_page_size,
+      .list   = page_size_get_ui_list,
+      .off    = offsetof(config_t, page_size_ui),
       .opts   = PO_DOC_NLIST,
       .group  = 2
     },
@@ -2469,8 +2550,8 @@ const idclass_t config_class = {
       .name   = N_("CORS origin"),
       .desc   = N_("HTTP CORS (cross-origin resource sharing) origin. This "
                    "option is usually set when Tvheadend is behind a "
-                   "proxy. Enter a domain (or IP) to allow "
-                   "cross-domain requests."),
+                   "proxy. Enter the URL (domain or IP address, prefixed "
+                   "with http:// or https://) to allow cross-domain requests."),
       .set    = config_class_cors_origin_set,
       .off    = offsetof(config_t, cors_origin),
       .opts   = PO_EXPERT,
@@ -2521,13 +2602,98 @@ const idclass_t config_class = {
       .group  = 6
     },
     {
+      .type   = PT_U32,
+      .id     = "hdhomerun_server_tuner_count",
+      .name   = N_("Number of tuners to export for HDHomeRun Server Emulation"),
+      .desc   = N_("When Tvheadend is acting as an HDHomeRun Server "
+                   "(emulating an HDHomeRun device for downstream "
+                   "media devices to stream Live TV) then "
+                   "we tell clients that we have this number of tuners. "
+                   "This is necessary since some clients artificially limit "
+                   "connections based on tuner count, even though several "
+                   "channels may share a multiplex on one tuner. "
+                   "The HDHomeRun interface can not distinguish between "
+                   "different types of tuner in a mixed system with "
+                   "satellite, aerial and cable. "
+                   "The actual number or types of tuners used by Tvheadend is "
+                   "not affected by this value.  Tvheadend will "
+                   "allocate tuners automatically.  "
+                   "Set to zero for Tvheadend to use a default value."
+                  ),
+      .off    = offsetof(config_t, hdhomerun_server_tuner_count),
+      .opts   = PO_EXPERT
+#if !ENABLE_HDHOMERUN_SERVER
+      | PO_PHIDDEN
+#endif
+      ,
+      .group  = 6,
+    },
+    {
+      .type   = PT_STR,
+      .id     = "hdhomerun_server_model_name",
+      .name   = N_("Tvheadend model name for HDHomeRun Server Emulation"),
+      .desc   = N_("When Tvheadend is acting as an HDHomeRun Server "
+                   "(emulating an HDHomeRun device for downstream "
+                   "media devices to stream Live TV) then "
+                   "we use this as the type of HDHomeRun model number "
+                   "that we send to clients.  Some clients may require "
+                   "a specific model number to work.  Leave blank "
+                   "for Tvheadend to use a default."
+                  ),
+      .off    = offsetof(config_t, hdhomerun_server_model_name),
+      .opts   = PO_EXPERT
+#if !ENABLE_HDHOMERUN_SERVER
+      | PO_PHIDDEN
+#endif
+      ,
+      .group  = 6,
+    },
+    {
+      .type   = PT_BOOL,
+      .id     = "hdhomerun_server_enable",
+      .name   = N_("Enable HDHomeRun Server Emulation"),
+      .desc   = N_("Enable the Tvheadend server to emulate "
+                   "an HDHomeRun server.  This allows LiveTV "
+                   "to be used on some media servers."
+                  ),
+      .off    = offsetof(config_t, hdhomerun_server_enable),
+      .opts   = PO_EXPERT
+#if !ENABLE_HDHOMERUN_SERVER
+      | PO_PHIDDEN
+#endif
+,
+      .group  = 6
+    },
+    {
+      .type   = PT_INT,
+      .id     = "rtsp_udp_min_port",
+      .name   = N_("RTSP UDP minimum port"),
+      .desc   = N_("When using RTSP IPTV, this correspond to the "
+                   "minimum port bind on the client (this server), "
+                   "sent to the server. This is especially useful "
+                   "when using firewalls and NAT or containers."),
+      .off    = offsetof(config_t, rtsp_udp_min_port),
+      .opts   = PO_EXPERT,
+      .group  = 7,
+    },
+    {
+      .type   = PT_INT,
+      .id     = "rtsp_udp_max_port",
+      .name   = N_("RTSP UDP maximum port"),
+      .desc   = N_("Same as above, but for the maximum allowed "
+                   "port. Note that each stream requires two ports."),
+      .off    = offsetof(config_t, rtsp_udp_max_port),
+      .opts   = PO_EXPERT,
+      .group  = 7,
+    },
+    {
       .type   = PT_STR,
       .id     = "http_user_agent",
       .name   = N_("HTTP User Agent"),
       .desc   = N_("The user agent string for the build-in HTTP client."),
       .off    = offsetof(config_t, http_user_agent),
       .opts   = PO_HIDDEN | PO_EXPERT,
-      .group  = 7,
+      .group  = 8,
     },
     {
       .type   = PT_INT,
@@ -2536,7 +2702,7 @@ const idclass_t config_class = {
       .desc   = N_("Set the number of threads for IPTV to split load "
                    "across more CPUs."),
       .off    = offsetof(config_t, iptv_tpool_count),
-      .group  = 7,
+      .group  = 8,
     },
     {
       .type   = PT_INT,
@@ -2553,7 +2719,7 @@ const idclass_t config_class = {
       .off    = offsetof(config_t, dscp),
       .list   = config_class_dscp_list,
       .opts   = PO_EXPERT | PO_DOC_NLIST,
-      .group  = 7,
+      .group  = 8,
     },
     {
       .type   = PT_U32,
@@ -2563,7 +2729,7 @@ const idclass_t config_class = {
                    "there is a delay receiving CA keys. "),
       .off    = offsetof(config_t, descrambler_buffer),
       .opts   = PO_EXPERT,
-      .group  = 7,
+      .group  = 8,
     },
     {
       .type   = PT_BOOL,
@@ -2574,7 +2740,7 @@ const idclass_t config_class = {
                    "It may cause issues with some clients / players."),
       .off    = offsetof(config_t, parser_backlog),
       .opts   = PO_EXPERT,
-      .group  = 7,
+      .group  = 8,
     },
     {
       .type   = PT_STR,
@@ -2587,7 +2753,7 @@ const idclass_t config_class = {
       .off    = offsetof(config_t, muxconf_path),
       .notify = config_muxconfpath_notify,
       .opts   = PO_ADVANCED,
-      .group  = 7,
+      .group  = 8,
     },
     {
       .type   = PT_BOOL,
@@ -2595,7 +2761,8 @@ const idclass_t config_class = {
       .name   = N_("Parse HbbTV info"),
       .desc   = N_("Parse HbbTV information from services."),
       .off    = offsetof(config_t, hbbtv),
-      .group  = 7,
+      .group  = 8,
+      .def.i  = 1,
     },
     {
       .type   = PT_BOOL,
@@ -2606,7 +2773,7 @@ const idclass_t config_class = {
                    "the system clock (normally only root)."),
       .off    = offsetof(config_t, tvhtime_update_enabled),
       .opts   = PO_EXPERT,
-      .group  = 7,
+      .group  = 8,
     },
     {
       .type   = PT_BOOL,
@@ -2618,7 +2785,7 @@ const idclass_t config_class = {
                    "performance is not that great."),
       .off    = offsetof(config_t, tvhtime_ntp_enabled),
       .opts   = PO_EXPERT,
-      .group  = 7,
+      .group  = 8,
     },
     {
       .type   = PT_U32,
@@ -2630,8 +2797,21 @@ const idclass_t config_class = {
                    "excessive oscillations on the system clock."),
       .off    = offsetof(config_t, tvhtime_tolerance),
       .opts   = PO_EXPERT,
+      .group  = 8,
+    },
+#if ENABLE_VAAPI
+    {
+      .type   = PT_BOOL,
+      .id     = "enable_vainfo",
+      .name   = N_("Enable vainfo detection"),
+      .desc   = N_("Enable vainfo detection in order to show only "
+                   "encoders that are advertised by VAAPI driver.\n"
+                   "NOTE: After save, Tvheadend restart is required!"),
+      .off    = offsetof(config_t, enable_vainfo),
+      .opts   = PO_EXPERT,
       .group  = 7,
     },
+#endif
     {
       .type   = PT_STR,
       .id     = "wizard",

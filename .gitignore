@@ -33,10 +33,13 @@ nbproject
 *.orig
 *.patch
 
+debian/.debhelper
 debian/changelog
 debian/files
 debian/tvheadend
 debian/tvheadend-dbg
+debian/tvheadend-armv6l
+debian/tvheadend-dbg-armv6l
 debian/tvheadend*substvars
 debian/tvheadend*.debhelper*
 

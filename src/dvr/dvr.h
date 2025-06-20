@@ -51,8 +51,8 @@ LIST_HEAD(dvr_vfs_list, dvr_vfs);
 #define DVR_FILESIZE_TOTAL      (1<<1)
 
 #define DVR_FINISHED_ALL             (1<<0)
-#define DVR_FINISHED_SUCCESS         (1<<1) 
-#define DVR_FINISHED_FAILED          (1<<2) 
+#define DVR_FINISHED_SUCCESS         (1<<1)
+#define DVR_FINISHED_FAILED          (1<<2)
 #define DVR_FINISHED_REMOVED_SUCCESS (1<<3) /* Removed recording, was succesful before */
 #define DVR_FINISHED_REMOVED_FAILED  (1<<4) /* Removed recording, was failed before */
 
@@ -127,6 +127,8 @@ typedef struct dvr_config {
 
   idnode_list_head_t dvr_accesses;
 
+  int dvr_autorec_dedup;
+
 } dvr_config_t;
 
 typedef enum {
@@ -194,7 +196,7 @@ typedef struct dvr_entry {
    */
 
   LIST_ENTRY(dvr_entry) de_global_link;
-  
+
   channel_t *de_channel;
   LIST_ENTRY(dvr_entry) de_channel_link;
 
@@ -233,7 +235,7 @@ typedef struct dvr_entry {
   char *de_image;               /* Programme Image */
   char *de_fanart_image;        /* Programme fanart image */
   htsmsg_t *de_files; /* List of all used files */
-  char *de_directory; /* Can be set for autorec entries, will override any 
+  char *de_directory; /* Can be set for autorec entries, will override any
                          directory setting from the configuration */
   lang_str_t *de_title;      /* Title in UTF-8 (from EPG) */
   lang_str_t *de_subtitle;   /* Subtitle in UTF-8 (from EPG) */
@@ -242,6 +244,16 @@ typedef struct dvr_entry {
   uint32_t de_content_type;  /* Content type (from EPG) (only code) */
   uint16_t de_copyright_year; /* Copyright year (from EPG) */
   uint16_t de_dvb_eid;
+  uint16_t de_age_rating;     /* Age rating (from EPG) */
+  //Depending how old the recording is, the current rating label system
+  //may have changed, so keep an absolute copy of the values at
+  //the time of recording rather than pointing to a rating label
+  //object that may no longer exist many years later.
+  char *de_rating_label_saved;       /* Saved rating label for after the recording has been completed*/
+  char *de_rating_icon_saved;        /* Saved rating icon full path (not image cache) for after the recording has been completed*/
+  char *de_rating_country_saved;     /* Saved rating country code for after the recording has been completed*/
+  char *de_rating_authority_saved;   /* Saved rating authority for after the recording has been completed*/
+  ratinglabel_t *de_rating_label; /* 'Live' rating label object */
 
   int de_pri;
   int de_dont_reschedule;
@@ -283,7 +295,7 @@ typedef struct dvr_entry {
    * Last error, see SM_CODE_ defines
    */
   uint32_t de_last_error;
-  
+
 
   /**
    * Autorec linkage
@@ -346,7 +358,8 @@ typedef enum {
   DVR_AUTOREC_LRECORD_ONCE_PER_MONTH = 13,
   DVR_AUTOREC_LRECORD_ONCE_PER_WEEK = 10,
   DVR_AUTOREC_LRECORD_ONCE_PER_DAY = 11,
-  /* first free value == 15 */
+  DVR_AUTOREC_RECORD_DVR_PROFILE = 15,
+  /* first free value == 16 */
 } dvr_autorec_dedup_t;
 
 typedef enum {
@@ -378,7 +391,7 @@ typedef struct dvr_autorec_entry {
   char *dae_title;
   tvh_regex_t dae_title_regex;
   int dae_fulltext;
-  
+
   uint32_t dae_content_type;
   /* These categories (mainly from xmltv) such as Cooking, Dog racing, Movie.
    * This allows user to easily do filtering such as '"Movie" "Martial arts"'
@@ -421,9 +434,9 @@ typedef struct dvr_autorec_entry {
 
   time_t dae_start_extra;
   time_t dae_stop_extra;
-  
+
   int dae_record;
-  
+
 } dvr_autorec_entry_t;
 
 extern struct dvr_autorec_entry_queue autorec_entries;
@@ -589,7 +602,8 @@ dvr_entry_update( dvr_entry_t *de, int enabled,
                   time_t start, time_t stop,
                   time_t start_extra, time_t stop_extra,
                   dvr_prio_t pri, int retention, int removal,
-                  int playcount, int playposition);
+                  int playcount, int playposition, int age_rating,
+                  ratinglabel_t *rating_label, const char *comment);
 
 void dvr_destroy_by_channel(channel_t *ch, int delconf);
 
@@ -611,6 +625,8 @@ void dvr_event_running(epg_broadcast_t *e, epg_running_t running);
 int dvr_entry_assign_broadcast(dvr_entry_t *de, epg_broadcast_t *bcast);
 
 dvr_entry_t *dvr_entry_find_by_id(int id);
+
+time_t dvr_entry_find_earliest(void);
 
 static inline dvr_entry_t *dvr_entry_find_by_uuid(const char *uuid)
   { return (dvr_entry_t*)idnode_find(uuid, &dvr_entry_class, NULL); }
@@ -666,7 +682,7 @@ void dvr_spawn_fetch_artwork(dvr_entry_t *de);
 void dvr_vfs_refresh_entry(dvr_entry_t *de);
 void dvr_vfs_remove_entry(dvr_entry_t *de);
 int64_t dvr_vfs_update_filename(const char *filename, htsmsg_t *fdata);
-int64_t dvr_vfs_rec_start_check(dvr_config_t *cfg);
+int dvr_vfs_rec_start_check(dvr_config_t *cfg);
 
 void dvr_disk_space_boot(void);
 void dvr_disk_space_init(void);

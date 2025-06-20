@@ -31,6 +31,7 @@
 #include "notify.h"
 #include "compat.h"
 #include "string_list.h"
+#include "epggrab.h" //Needed to get the epggrab_conf.epgdb_processparentallabels flag.
 
 struct dvr_entry_list dvrentries;
 static int dvr_in_init;
@@ -57,6 +58,8 @@ static void dvr_entry_watched_timer_arm(dvr_entry_t* de);
 static void dvr_entry_watched_timer_disarm(dvr_entry_t* de);
 
 static dvr_entry_t *_dvr_duplicate_event(dvr_entry_t *de);
+
+static const void *dvr_entry_class_rating_icon_url_get(void *o);
 
 /*
  *
@@ -1207,6 +1210,29 @@ dvr_entry_create_from_htsmsg(htsmsg_t *conf, epg_broadcast_t *e)
     genre = LIST_FIRST(&e->genre);
     if (genre)
       htsmsg_add_u32(conf, "content_type", genre->code / 16);
+    if(e->age_rating)
+      htsmsg_add_u32(conf, "age_rating", e->age_rating);
+
+    //Only process these fields if rating labels are enabled.
+    if(epggrab_conf.epgdb_processparentallabels){
+      if(e->rating_label){
+        htsmsg_set_uuid(conf, "rating_label_uuid", &e->rating_label->rl_id.in_uuid);
+
+        if(e->rating_label->rl_icon){
+          htsmsg_add_str(conf, "rating_icon_saved", imagecache_get_propstr(e->rating_label->rl_icon, tbuf, sizeof(tbuf)));
+        }
+
+        if(e->rating_label->rl_country){
+          htsmsg_add_str(conf, "rating_country_saved", e->rating_label->rl_country);
+        }
+
+        if(e->rating_label->rl_authority){
+          htsmsg_add_str(conf, "rating_authority_saved", e->rating_label->rl_authority);
+        }
+
+      }
+    }//END rating labels enabled.
+
   }
 
   de = dvr_entry_create(NULL, conf, 0);
@@ -1463,6 +1489,7 @@ not_so_good:
   htsmsg_add_str2(conf, "owner", de->de_owner);
   htsmsg_add_str2(conf, "creator", de->de_creator);
   htsmsg_add_str(conf, "comment", buf);
+  htsmsg_add_str2(conf, "directory", de->de_directory);
   de2 = dvr_entry_create_from_htsmsg(conf, e);
   htsmsg_destroy(conf);
 
@@ -1737,7 +1764,10 @@ static dvr_entry_t *_dvr_duplicate_event(dvr_entry_t *de)
   if (lang_str_empty(de->de_title))
     return NULL;
 
-  record = de->de_autorec->dae_record;
+  if (de->de_autorec->dae_record == DVR_AUTOREC_RECORD_DVR_PROFILE)
+    record = de->de_config->dvr_autorec_dedup;
+  else
+    record = de->de_autorec->dae_record;
 
   switch (record) {
     case DVR_AUTOREC_RECORD_ALL:
@@ -1801,8 +1831,10 @@ static dvr_entry_t *_dvr_duplicate_event(dvr_entry_t *de)
       if (dvr_entry_is_finished(de2, DVR_FINISHED_FAILED | DVR_FINISHED_REMOVED_FAILED))
         continue;
 
-      // if titles are not defined or do not match, don't dedup
-      if (lang_str_compare(de->de_title, de2->de_title))
+      // some channels add "New:" to the title of the first showing, so title match with repeats will fail.
+      // if we are going on to check CRIDs, ignore any title mismatch
+      // otherwise if titles are not defined or do not match, don't dedup
+      if (record != DVR_AUTOREC_RECORD_UNIQUE && lang_str_compare(de->de_title, de2->de_title))
         continue;
 
       if (match(de, de2, &aux)) {
@@ -1854,7 +1886,7 @@ dvr_is_better_recording_timeslot(const epg_broadcast_t *new_bcast, const dvr_ent
   /* If programme is recording (or completed) then it is the "best",
    * even if a better schedule is found after recording starts.
    */
-  if (old_de->de_sched_state != DVR_SCHEDULED)
+  if (old_de && old_de->de_sched_state != DVR_SCHEDULED)
     return 0;
 
   if (!old_de || !old_de->de_bcast) return 1;            /* Old broadcast should always exist */
@@ -1905,7 +1937,7 @@ dvr_is_better_recording_timeslot(const epg_broadcast_t *new_bcast, const dvr_ent
     if (svf == PROFILE_SVF_UHD && !old_has_svf) {
       old_has_svf = channel_has_correct_service_filter(old_channel, PROFILE_SVF_FHD);
       new_has_svf = channel_has_correct_service_filter(new_channel, PROFILE_SVF_FHD);
-      
+
       if (!old_has_svf && new_has_svf)
         return 1;
 
@@ -2364,10 +2396,12 @@ dvr_timer_remove_files(void *aux)
 #define DVR_UPDATED_CONFIG       (1<<17)
 #define DVR_UPDATED_PLAYPOS      (1<<18)
 #define DVR_UPDATED_PLAYCOUNT    (1<<19)
+#define DVR_UPDATED_AGE_RATING   (1<<20)
+#define DVR_UPDATED_COMMENT      (1<<21)
 
 static char *dvr_updated_str(char *buf, size_t buflen, int flags)
 {
-  static const char *x = "ecoOsStumdpgrviBEC";
+  static const char *x = "ecoOsStumdpgrviBECPaAM";
   const char *p = x;
   char *w = buf, *end = buf + buflen;
 
@@ -2411,7 +2445,8 @@ static dvr_entry_t *_dvr_entry_update
     const char *lang, time_t start, time_t stop,
     time_t start_extra, time_t stop_extra,
     dvr_prio_t pri, int retention, int removal,
-    int playcount, int playposition)
+    int playcount, int playposition, int age_rating,
+    ratinglabel_t *rating_label, const char *comment)
 {
   char buf[40];
   int save = 0, updated = 0;
@@ -2527,6 +2562,18 @@ static dvr_entry_t *_dvr_entry_update
     updated = 1;
     dvr_entry_set_timer(de);
   }
+  /* Manual Age Rating */
+  if (age_rating != de->de_age_rating) {
+    de->de_age_rating = age_rating;
+    save |= DVR_UPDATED_AGE_RATING;
+  }
+
+  /* Comment */
+  if (comment && strcmp(de->de_comment ?: "", comment)) {
+    free(de->de_comment);
+    de->de_comment = strdup(comment);
+    save |= DVR_UPDATED_COMMENT;
+  }
 
   /* Title */
   if (e && e->title) {
@@ -2553,6 +2600,12 @@ static dvr_entry_t *_dvr_entry_update
   if (e && e->dvb_eid != de->de_dvb_eid) {
     de->de_dvb_eid = e->dvb_eid;
     save |= DVR_UPDATED_EID;
+  }
+
+  /* Age Rating from EPG*/
+  if (e && e->age_rating != de->de_age_rating) {
+    de->de_age_rating = e->age_rating;
+    save |= DVR_UPDATED_AGE_RATING;
   }
 
   /* Description */
@@ -2637,12 +2690,14 @@ dvr_entry_update
     const char *summary, const char *desc, const char *lang,
     time_t start, time_t stop,
     time_t start_extra, time_t stop_extra,
-    dvr_prio_t pri, int retention, int removal, int playcount, int playposition )
+    dvr_prio_t pri, int retention, int removal, int playcount, int playposition,
+    int age_rating, ratinglabel_t *rating_label, const char *comment)
 {
   return _dvr_entry_update(de, enabled, dvr_config_uuid,
                            NULL, ch, title, subtitle, summary, desc, lang,
                            start, stop, start_extra, stop_extra,
-                           pri, retention, removal, playcount, playposition);
+                           pri, retention, removal, playcount, playposition,
+                           age_rating, rating_label, comment);
 }
 
 /**
@@ -2696,7 +2751,7 @@ dvr_event_replaced(epg_broadcast_t *e, epg_broadcast_t *new_e)
                           gmtime2local(e2->start, t1buf, sizeof(t1buf)),
                           gmtime2local(e2->stop, t2buf, sizeof(t2buf)));
           _dvr_entry_update(de, -1, NULL, e2, NULL, NULL, NULL, NULL, NULL,
-                            NULL, 0, 0, 0, 0, DVR_PRIO_NOTSET, 0, 0, -1, -1);
+                            NULL, 0, 0, 0, 0, DVR_PRIO_NOTSET, 0, 0, -1, -1, 0, NULL, NULL);
           return;
         }
       }
@@ -2737,7 +2792,7 @@ void dvr_event_updated(epg_broadcast_t *e)
     assert(de->de_bcast == e);
     if (de->de_sched_state != DVR_SCHEDULED) continue;
     _dvr_entry_update(de, -1, NULL, e, NULL, NULL, NULL, NULL, NULL,
-                      NULL, 0, 0, 0, 0, DVR_PRIO_NOTSET, 0, 0, -1, -1);
+                      NULL, 0, 0, 0, 0, DVR_PRIO_NOTSET, 0, 0, -1, -1, 0, NULL, NULL);
   }
   LIST_FOREACH(de, &e->channel->ch_dvrs, de_channel_link) {
     if (de->de_sched_state != DVR_SCHEDULED) continue;
@@ -2749,7 +2804,7 @@ void dvr_event_updated(epg_broadcast_t *e)
                             epg_broadcast_get_title(e, NULL),
                             channel_get_name(e->channel, channel_blank_name));
       _dvr_entry_update(de, -1, NULL, e, NULL, NULL, NULL, NULL, NULL,
-                        NULL, 0, 0, 0, 0, DVR_PRIO_NOTSET, 0, 0, -1, -1);
+                        NULL, 0, 0, 0, 0, DVR_PRIO_NOTSET, 0, 0, -1, -1, 0, NULL, NULL);
     }
   }
 }
@@ -3017,6 +3072,35 @@ dvr_entry_find_by_id(int id)
   return de;
 }
 
+/**
+ * Find the earliest scheduled dvr entry
+ */
+time_t
+dvr_entry_find_earliest(void)
+{
+  time_t start;
+  time_t earliest = 0;
+  dvr_entry_t *de;
+
+  LIST_FOREACH(de, &dvrentries, de_global_link)
+  {
+    if(dvr_entry_is_upcoming(de) && de->de_enabled)
+    {
+      start = dvr_entry_get_start_time(de, 1);
+      if(earliest == 0)
+      {
+        earliest = start;
+      }
+      else if(start < earliest)
+      {
+        earliest = start;
+      }
+    }
+  }//END FOREACH
+
+  return earliest;
+
+}
 
 /**
  * Unconditionally remove an entry
@@ -3383,6 +3467,87 @@ dvr_entry_class_channel_name_get(void *o)
 }
 
 static int
+dvr_entry_class_rating_set(void *o, const void *v)
+{
+  dvr_entry_t *de = (dvr_entry_t *)o;
+  ratinglabel_t   *rl = NULL;
+
+  //If RL processing is not enabled, return a null and exit.
+  if(!epggrab_conf.epgdb_processparentallabels){
+    de->de_rating_label = NULL;
+    return 0;
+  }
+
+  if (!dvr_entry_is_editable(de))
+    return 0;
+
+  //If the entry is in the past, don't link to the RL object.
+  if (de->de_stop < gclk()){
+    de->de_rating_label = NULL;
+    return 0;
+  }
+
+  rl = v ? ratinglabel_find_from_uuid(v) : NULL;
+
+  //If the rating label is found.
+  if(rl){
+    //Set the rating label pointer in the DVR entry object
+    de->de_rating_label = rl;
+
+    //Save the label and icon values
+    if(de->de_rating_label_saved){
+        free(de->de_rating_label_saved);
+    }
+
+    if(rl->rl_display_label){
+        de->de_rating_label_saved = strdup(rl->rl_display_label);
+    }
+
+    if(de->de_rating_icon_saved){
+        free(de->de_rating_icon_saved);
+    }
+
+    if(rl->rl_icon){
+        de->de_rating_icon_saved = strdup(rl->rl_icon);
+    }
+
+    if(de->de_rating_authority_saved){
+        free(de->de_rating_authority_saved);
+    }
+
+    if(rl->rl_authority){
+        de->de_rating_authority_saved = strdup(rl->rl_authority);
+    }
+
+    if(de->de_rating_country_saved){
+        free(de->de_rating_country_saved);
+    }
+
+    if(rl->rl_country){
+        de->de_rating_country_saved = strdup(rl->rl_country);
+    }
+
+    return 1;
+  }//END we got an RL object.
+
+  return 0;
+}
+
+//Return the UUID string for this rating label of this entry.
+//If RL is not enabled, this function must return an empty string,
+//returning NULL will cause a crash.
+static const void *
+dvr_entry_class_rating_get(void *o)
+{
+  dvr_entry_t *de = (dvr_entry_t *)o;
+  if (de->de_rating_label)
+    idnode_uuid_as_str(&de->de_rating_label->rl_id, prop_sbuf);
+  else
+    prop_sbuf[0] = '\0';
+  return &prop_sbuf_ptr;
+}
+
+static int
 dvr_entry_class_pri_set(void *o, const void *v)
 {
   dvr_entry_t *de = (dvr_entry_t *)o;
@@ -3684,7 +3849,7 @@ dvr_entry_class_disp_summary_set(void *o, const void *v)
   const char *lang = idnode_lang(o);
   const char *s = "";
   v = tvh_str_default(v, "UnknownSummary");
-  if (de->de_subtitle)
+  if (de->de_summary)
     s = lang_str_get(de->de_summary, lang);
   if (strcmp(s, v)) {
     lang_str_set(&de->de_summary, v, lang);
@@ -3928,6 +4093,95 @@ dvr_entry_class_fanart_image_notify(void *o, const char *lang)
 {
   (void)imagecache_get_id(dvr_entry_get_fanart_image(o));
 }
+
+static const void *
+dvr_entry_class_rating_icon_url_get(void *o)
+{
+  dvr_entry_t *de = (dvr_entry_t *)o;
+  ratinglabel_t *rl = de->de_rating_label;
+  if ((rl == NULL) || (de->de_sched_state > DVR_SCHEDULED)) {
+    //See if there is a saved icon and if so return the imagecache path for that icon.
+    prop_ptr = "";
+    if(de->de_rating_icon_saved){
+        prop_ptr = de->de_rating_icon_saved;
+        prop_ptr = imagecache_get_propstr(prop_ptr, prop_sbuf, PROP_SBUF_LEN);
+    }
+  } else {
+    //Get the icon from the live RL object.
+    return ratinglabel_class_get_icon (rl);
+  }
+  return &prop_ptr;
+}
+
+static const void *
+dvr_entry_class_rating_label_get(void *o)
+{
+  dvr_entry_t *de = (dvr_entry_t *)o;
+  ratinglabel_t *rl = de->de_rating_label;
+  if (rl == NULL) {
+    prop_ptr = "";
+    if(de->de_rating_label_saved){
+        prop_ptr = de->de_rating_label_saved;
+    }
+  } else {
+    if(de->de_sched_state == DVR_SCHEDULED){
+      prop_ptr = rl->rl_display_label;
+    }
+    else
+    {
+      prop_ptr = de->de_rating_label_saved;
+    }
+
+  }
+  return &prop_ptr;
+}
+
+static const void *
+dvr_entry_class_rating_authority_get(void *o)
+{
+  dvr_entry_t *de = (dvr_entry_t *)o;
+  ratinglabel_t *rl = de->de_rating_label;
+  if (rl == NULL) {
+    prop_ptr = "";
+    if(de->de_rating_authority_saved){
+        prop_ptr = de->de_rating_authority_saved;
+    }
+  } else {
+    if(de->de_sched_state == DVR_SCHEDULED){
+      prop_ptr = rl->rl_authority;
+    }
+    else
+    {
+      prop_ptr = de->de_rating_authority_saved;
+    }
+
+  }
+  return &prop_ptr;
+}
+
+static const void *
+dvr_entry_class_rating_country_get(void *o)
+{
+  dvr_entry_t *de = (dvr_entry_t *)o;
+  ratinglabel_t *rl = de->de_rating_label;
+  if (rl == NULL) {
+    prop_ptr = "";
+    if(de->de_rating_country_saved){
+        prop_ptr = de->de_rating_country_saved;
+    }
+  } else {
+    if(de->de_sched_state == DVR_SCHEDULED){
+      prop_ptr = rl->rl_country;
+    }
+    else
+    {
+      prop_ptr = de->de_rating_country_saved;
+    }
+
+  }
+  return &prop_ptr;
+}
+
 
 static const void *
 dvr_entry_class_duplicate_get(void *o)
@@ -4506,7 +4760,7 @@ const idclass_t dvr_entry_class = {
     {
       .type     = PT_U16,
       .id       = "copyright_year",
-      .name     = N_("The copyright year of the program."),
+      .name     = N_("Copyright year"),
       .desc     = N_("The copyright year of the program."),
       .off      = offsetof(dvr_entry_t, de_copyright_year),
       .opts     = PO_RDONLY | PO_EXPERT,
@@ -4621,6 +4875,91 @@ const idclass_t dvr_entry_class = {
       .desc     = N_("Genre of program"),
       .get      = dvr_entry_class_genre_get,
       .opts     = PO_RDONLY | PO_NOSAVE,
+    },
+    {
+      .type     = PT_U16,
+      .id       = "age_rating",
+      .name     = N_("Age Rating"),
+      .desc     = N_("The age rating of the program."),
+      .off      = offsetof(dvr_entry_t, de_age_rating),
+      .opts     = PO_RDONLY | PO_EXPERT,
+    },
+    {
+      .type     = PT_STR,
+      .id       = "rating_label_saved",
+      .name     = N_("Saved Rating Label"),
+      .desc     = N_("Saved parental rating for once recording is complete."),
+      .off      = offsetof(dvr_entry_t, de_rating_label_saved),
+      .opts     = PO_RDONLY | PO_NOUI,
+    },
+    {
+      .type     = PT_STR,
+      .id       = "rating_icon_saved",
+      .name     = N_("Saved Rating Icon Path"),
+      .desc     = N_("Saved parental rating icon for once recording is complete."),
+      .off      = offsetof(dvr_entry_t, de_rating_icon_saved),
+      .opts     = PO_RDONLY | PO_NOUI,
+    },
+    {
+      .type     = PT_STR,
+      .id       = "rating_authority_saved",
+      .name     = N_("Saved Rating Authority"),
+      .desc     = N_("Saved parental rating authority for once recording is complete."),
+      .off      = offsetof(dvr_entry_t, de_rating_authority_saved),
+      .opts     = PO_RDONLY | PO_NOUI,
+    },
+    {
+      .type     = PT_STR,
+      .id       = "rating_country_saved",
+      .name     = N_("Saved Rating Country"),
+      .desc     = N_("Saved parental rating country for once recording is complete."),
+      .off      = offsetof(dvr_entry_t, de_rating_country_saved),
+      .opts     = PO_RDONLY | PO_NOUI,
+    },
+    //This needs to go after the 'saved' properties because loading the RL object
+    //can refresh the 'saved' objects for scheduled entries.
+    {
+      .type     = PT_STR,
+      .id       = "rating_label_uuid",
+      .name     = N_("Rating Label UUID"),
+      .desc     = N_("Parental rating label UUID."),
+      .set      = dvr_entry_class_rating_set,
+      .get      = dvr_entry_class_rating_get,
+      .opts     = PO_RDONLY | PO_NOUI,
+    },
+    //This needs to go after the RL object is loaded because the
+    //getter needs the object in order to get the imagecache icon path.
+    {
+      .type     = PT_STR,
+      .id       = "rating_icon",
+      .name     = N_("Rating Icon"),
+      .desc     = N_("Rating Icon URL."),
+      .get      = dvr_entry_class_rating_icon_url_get,
+      .opts     = PO_HIDDEN | PO_RDONLY | PO_NOSAVE | PO_NOUI,
+    },
+    {
+      .type     = PT_STR,
+      .id       = "rating_authority",
+      .name     = N_("Rating Authority"),
+      .desc     = N_("Rating Authority."),
+      .get      = dvr_entry_class_rating_authority_get,
+      .opts     = PO_HIDDEN | PO_RDONLY | PO_NOSAVE | PO_NOUI,
+    },
+    {
+      .type     = PT_STR,
+      .id       = "rating_country",
+      .name     = N_("Rating Country"),
+      .desc     = N_("Rating Country."),
+      .get      = dvr_entry_class_rating_country_get,
+      .opts     = PO_HIDDEN | PO_RDONLY | PO_NOSAVE | PO_NOUI,
+    },
+    {
+      .type     = PT_STR,
+      .id       = "rating_label",
+      .name     = N_("Rating Label"),
+      .desc     = N_("Rating Label."),
+      .get      = dvr_entry_class_rating_label_get,
+      .opts     = PO_HIDDEN | PO_RDONLY | PO_NOSAVE,
     },
     {}
   }
@@ -4739,7 +5078,7 @@ dvr_entry_delete(dvr_entry_t *de)
       r = deferred_unlink(filename, rdir);
       if(r && r != -ENOENT)
         tvhwarn(LS_DVR, "Unable to remove file '%s' from disk -- %s",
-  	        filename, strerror(-errno));
+  	        filename, strerror(errno));
 
       cmd = de->de_config->dvr_postremove;
       if (cmd && cmd[0])

@@ -391,6 +391,7 @@ idnode_get_u32
       ptr = ((void*)self) + p->off;
     switch (p->type) {
       case PT_INT:
+      case PT_DYN_INT:
       case PT_BOOL:
         *u32 = *(int*)ptr;
         return 0;
@@ -425,6 +426,7 @@ idnode_get_s64
       ptr = ((void*)self) + p->off;
     switch (p->type) {
       case PT_INT:
+      case PT_DYN_INT:
       case PT_BOOL:
         *s64 = *(int*)ptr;
         return 0;
@@ -495,6 +497,7 @@ idnode_get_dbl
       ptr = ((void*)self) + p->off;
     switch (p->type) {
       case PT_INT:
+      case PT_DYN_INT:
       case PT_BOOL:
         *dbl = *(int*)ptr;
         return 0;
@@ -761,6 +764,7 @@ idnode_cmp_sort
       }
       break;
     case PT_INT:
+    case PT_DYN_INT:
     case PT_U16:
     case PT_BOOL:
     case PT_PERM:
@@ -1922,7 +1926,7 @@ idnode_notify_title_changed (void *in)
 {
   htsmsg_t *m = htsmsg_create_map();
   htsmsg_add_uuid(m, "uuid", &((idnode_t *)in)->in_uuid);
-  notify_by_msg("title", m, NOTIFY_REWRITE_TITLE);
+  notify_by_msg("title", m, 0, NOTIFY_REWRITE_TITLE);
   idnode_notify_changed(in);
 }
 

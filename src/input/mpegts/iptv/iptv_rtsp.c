@@ -18,6 +18,7 @@
  */
 
 #include "tvheadend.h"
+#include "config.h"
 #include "iptv_private.h"
 #include "iptv_rtcp.h"
 #include "http.h"
@@ -75,7 +76,6 @@ iptv_rtsp_header ( http_client_t *hc )
 {
   iptv_mux_t *im = hc->hc_aux;
   rtsp_priv_t *rp;
-  url_t url;
   int r;
   char *p;
 
@@ -101,7 +101,11 @@ iptv_rtsp_header ( http_client_t *hc )
     return 0;
   }
 
-  if (hc->hc_cmd == RTSP_CMD_DESCRIBE && hc->hc_code != HTTP_STATUS_OK && hc->hc_code != HTTP_STATUS_SEE_OTHER) {
+  if (hc->hc_cmd == RTSP_CMD_DESCRIBE && hc->hc_code != HTTP_STATUS_OK &&
+      !(hc->hc_code == HTTP_STATUS_MOVED ||
+      hc->hc_code == HTTP_STATUS_FOUND ||
+      hc->hc_code == HTTP_STATUS_SEE_OTHER ||
+      hc->hc_code == HTTP_STATUS_NOT_MODIFIED)) {
     tvherror(LS_IPTV, "DESCRIBE request returned an invalid error code (%d) for '%s', "
              "fall back to GET_PARAMETER in keep alive loop.", hc->hc_code, im->mm_iptv_url_raw);
     hc->hc_rtsp_keep_alive_cmd = RTSP_CMD_GET_PARAMETER;
@@ -114,42 +118,28 @@ iptv_rtsp_header ( http_client_t *hc )
 
   switch (hc->hc_cmd) {
   case RTSP_CMD_DESCRIBE:
-    if(rp->play) {
+    if (rp->play) {
       // Already active, most probably a keep-alive response
       break;
     }
-    if (hc->hc_code == HTTP_STATUS_SEE_OTHER) {
+    if (hc->hc_code == HTTP_STATUS_MOVED ||
+        hc->hc_code == HTTP_STATUS_FOUND ||
+        hc->hc_code == HTTP_STATUS_SEE_OTHER ||
+        hc->hc_code == HTTP_STATUS_NOT_MODIFIED) {
+      // Redirect from RTSP server
       if (!hc->hc_handle_location) {
-        tvherror(LS_IPTV, "received code 303 from RTSP server but redirects disabled '%s'",
-            im->mm_iptv_url_raw);
+        tvherror(LS_IPTV, "received code %d from RTSP server but redirects disabled '%s'",
+            hc->hc_code, im->mm_iptv_url_raw);
         return -1;
       }
-      // Redirect from RTSP server, parse new location and use that instead
       p = http_arg_get(&hc->hc_args, "Location");
       if (p == NULL) {
-        tvherror(LS_IPTV, "received code 303 from RTSP server but no new location given for '%s'",
-            im->mm_iptv_url_raw);
+        tvherror(LS_IPTV, "received code %d from RTSP server but no new location given for '%s'",
+            hc->hc_code, im->mm_iptv_url_raw);
         return -1;
       }
-      tvhinfo(LS_IPTV, "received new location from RTSP server '%s' was '%s'", p,
-          im->mm_iptv_url_raw);
-      urlinit(&url);
-      if (urlparse(p, &url) || strncmp(url.scheme, "rtsp", 4) != 0) {
-        tvherror(LS_IPTV, "%s - invalid URL [%s]", im->mm_nicename, p);
-        return -1;
-      }
-      if(rp->path)
-        free(rp->path);
-      if(rp->query)
-        free(rp->query);
-      rp->path = strdup(url.path ? : "");
-      rp->query = strdup(url.query ? : "");
-      urlreset(&url);
-      r = rtsp_describe(hc, rp->path, rp->query);
-      if (r < 0) {
-        tvherror(LS_IPTV, "rtsp: DESCRIBE failed");
-        return -1;
-      }
+      tvhinfo(LS_IPTV, "received new location from RTSP server (code: %d) '%s' was '%s'",
+          hc->hc_code, p, im->mm_iptv_url_raw);
     }
     break;
   case RTSP_CMD_SETUP:
@@ -274,6 +264,8 @@ iptv_rtsp_start
   http_client_t *hc;
   udp_connection_t *rtp, *rtcp;
   int r;
+  int rtp_port;
+  int max_rtp_port;
 
   if (!(hc = http_client_connect(im, RTSP_VERSION_1_0, u->scheme,
                                  u->host, u->port, NULL)))
@@ -283,13 +275,36 @@ iptv_rtsp_start
     hc->hc_rtsp_user = strdup(u->user);
   if (u->pass)
     hc->hc_rtsp_pass = strdup(u->pass);
+  
+  rtp_port = config.rtsp_udp_min_port;
+  max_rtp_port = config.rtsp_udp_max_port;
 
-  if (udp_bind_double(&rtp, &rtcp,
-                      LS_IPTV, "rtp", "rtcp",
-                      NULL, 0, NULL,
-                      128*1024, 16384, 4*1024, 4*1024) < 0) {
+  if (!max_rtp_port) {
+    rtp_port = 0;
+  }
+
+  if (rtp_port > max_rtp_port)
+  {
+    tvherror(LS_IPTV, "UDP minimum port is set higher than the UDP maximum port");
     http_client_close(hc);
     return SM_CODE_TUNING_FAILED;
+  }
+
+  while (udp_bind_double(&rtp, &rtcp,
+                          LS_IPTV, "rtp", "rtcp",
+                          NULL, rtp_port, NULL,
+                          128 * 1024, 16384, 4 * 1024, 4 * 1024, 1) < 0)
+  {
+    if (!rtp_port) {
+      tvherror(LS_IPTV, "could not bind a random UDP port for RTP");
+      http_client_close(hc);
+      return SM_CODE_TUNING_FAILED;
+    } else if (max_rtp_port && rtp_port >= max_rtp_port - 2) {
+      tvherror(LS_IPTV, "all the UDP ports allocated are used, please reduce the number of simultaneous IPTV streams or increase the number of ports in the global settings");
+      http_client_close(hc);
+      return SM_CODE_TUNING_FAILED;
+    }
+    rtp_port += 2;
   }
 
   hc->hc_hdr_received        = iptv_rtsp_header;

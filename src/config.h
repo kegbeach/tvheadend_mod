@@ -30,6 +30,7 @@
 typedef struct config {
   idnode_t idnode;
   uint32_t version;
+  char *confdir;
   int hbbtv;
   int uilevel;
   int uilevel_nochange;
@@ -74,6 +75,15 @@ typedef struct config {
   char *hdhomerun_ip;
   char *local_ip;
   int local_port;
+  int rtsp_udp_min_port;
+  int rtsp_udp_max_port;
+  uint32_t hdhomerun_server_tuner_count;
+  char *hdhomerun_server_model_name;
+  int hdhomerun_server_enable;
+#if ENABLE_VAAPI
+  int enable_vainfo;
+  #endif
+  uint32_t page_size_ui;
 } config_t;
 
 extern const idclass_t config_class;

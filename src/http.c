@@ -370,7 +370,7 @@ http_send_header(http_connection_t *hc, int rc, const char *content,
     if (config.cors_origin && config.cors_origin[0]) {
       htsbuf_qprintf(&hdrs, "Access-Control-Allow-Origin: %s\r\n%s%s%s", config.cors_origin,
                             "Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n",
-                            "Access-Control-Allow-Headers: x-requested-with,authorization\r\n",
+                            "Access-Control-Allow-Headers: x-requested-with,authorization,content-type\r\n",
                             "Access-Control-Allow-Credentials: true\r\n");
     }
   }
@@ -412,7 +412,7 @@ http_send_header(http_connection_t *hc, int rc, const char *content,
         http_auth_header(&hdrs, realm,
                          config.http_auth_algo == HTTP_AUTH_ALGO_SHA256 ?
                            "SHA-256" :
-#if OPENSSL_VERSION_NUMBER >= 0x1010101fL
+#if OPENSSL_VERSION_NUMBER >= 0x1010101fL && !defined(LIBRESSL_VERSION_NUMBER)
                              "SHA-512-256",
 #else
                              "SHA-256",
@@ -1072,7 +1072,6 @@ http_verify_prepare(http_connection_t *hc, struct http_verify_structure *v)
       m = http_get_digest_hash(v->algo, hc->hc_post_data ?: "");
       snprintf(all, sizeof(all), "%s:%s:%s", method, uri, m);
       free(m);
-      m = NULL;
     } else if (strcasecmp(qop, "auth") == 0) {
       snprintf(all, sizeof(all), "%s:%s", method, uri);
     } else {

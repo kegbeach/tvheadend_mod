@@ -724,8 +724,7 @@ http_client_finish( http_client_t *hc )
   wcmd = TAILQ_FIRST(&hc->hc_wqueue);
   if (wcmd)
     http_client_cmd_destroy(hc, wcmd);
-  if (hc->hc_version != RTSP_VERSION_1_0 &&
-      hc->hc_handle_location &&
+  if (hc->hc_handle_location &&
       (hc->hc_code == HTTP_STATUS_MOVED ||
        hc->hc_code == HTTP_STATUS_FOUND ||
        hc->hc_code == HTTP_STATUS_SEE_OTHER ||
@@ -941,6 +940,24 @@ http_client_data_received( http_client_t *hc, char *buf, ssize_t len, int hdr )
 }
 
 static int
+http_arg_contains(const char *arg, const char *val)
+{
+  char *a, *next, *p;
+  /* copy will be modified by strsep() */
+  a = strdup(arg);
+  for (next = p = a; p != NULL; p = strsep(&next, ",")) {
+    /* skip whitespace */
+    p += strspn(p, " \t\r\n");
+    if (strcasecmp(p, val) == 0) {
+      free(a);
+      return 1;
+    }
+  }
+  free(a);
+  return 0;
+}
+
+static int
 http_client_run0( http_client_t *hc )
 {
   char *buf, *saveptr, *argv[3], *d, *p;
@@ -1093,7 +1110,7 @@ header:
   }
   p = http_arg_get(&hc->hc_args, "Connection");
   if (p && ver != RTSP_VERSION_1_0) {
-    if (strcasecmp(p, "close") == 0 || strcasecmp(p, "upgrade") == 0) /* Some servers
+    if (http_arg_contains(p, "close") || http_arg_contains(p, "upgrade")) /* Some servers
       send the upgrade header to switch to http2 even though we did not request this.
       Assume that we can not keep alive the connection in that case */
       hc->hc_keepalive = 0;
@@ -1321,14 +1338,17 @@ http_client_simple_reconnect ( http_client_t *hc, const url_t *u,
 
   http_client_flush(hc, 0);
 
-  http_arg_init(&h);
-  hc->hc_hdr_create(hc, &h, u, 0);
   hc->hc_reconnected = 1;
   hc->hc_shutdown    = 0;
   hc->hc_pevents     = 0;
   hc->hc_version     = ver;
 
-  r = http_client_send(hc, hc->hc_cmd, u->path, u->query, &h, NULL, 0);
+  if (ver != RTSP_VERSION_1_0) {
+    http_arg_init(&h);
+    hc->hc_hdr_create(hc, &h, u, 0);
+    r = http_client_send(hc, hc->hc_cmd, u->path, u->query, &h, NULL, 0);
+  } else
+    r = http_client_send(hc, hc->hc_cmd, u->raw, u->query, NULL, NULL, 0);
   if (r < 0)
     return r;
 
@@ -1579,7 +1599,7 @@ http_client_connect
   tvh_mutex_init(&hc->hc_mutex, NULL);
   hc->hc_id      = atomic_add(&tally, 1);
   hc->hc_aux     = aux;
-  hc->hc_io_size = 1024;
+  hc->hc_io_size = 2048;
   hc->hc_rtsp_stream_id = -1;
   hc->hc_verify_peer = -1;
   hc->hc_bindaddr = bindaddr ? strdup(bindaddr) : NULL;

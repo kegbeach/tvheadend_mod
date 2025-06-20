@@ -1157,12 +1157,12 @@ rtsp_parse_cmd
   mtype = mtype_to_tvh(hc);
   if (mtype == DVB_MOD_NONE) goto end;
 
-  src = 1;
+  src = http_arg_get(&hc->hc_req_args, "src") ?
+    atoi(http_arg_get_remove(&hc->hc_req_args, "src")) : 1;
+  if (src < 1) goto end;
 
   if (msys == DVB_SYS_DVBS || msys == DVB_SYS_DVBS2) {
 
-    src = atoi(http_arg_get_remove(&hc->hc_req_args, "src") ?: "0");
-    if (src < 1) goto end;
     pol = pol_to_tvh(hc);
     if (pol < 0) goto end;
     sr = atof(http_arg_get_remove(&hc->hc_req_args, "sr") ?: "0") * 1000;
@@ -1175,7 +1175,10 @@ rtsp_parse_cmd
     plts = pilot_to_tvh(hc);
     if (plts == DVB_PILOT_NONE) goto end;
 
-    if (!TAILQ_EMPTY(&hc->hc_req_args)) goto eargs;
+    TAILQ_FOREACH(arg, &hc->hc_req_args, link)
+      tvhwarn(LS_SATIPS, "%i/%s/%i: extra parameter '%s'='%s'",
+        rs->frontend, rs->session, rs->stream,
+        arg->key, arg->val);
 
     dmc->dmc_fe_rolloff = ro;
     dmc->dmc_fe_pilot = plts;
@@ -1207,7 +1210,10 @@ rtsp_parse_cmd
     sm = atoi(http_arg_get_remove(&hc->hc_req_args, "sm") ?: "0");
     if (sm < 0 || sm > 1) goto end;
 
-    if (!TAILQ_EMPTY(&hc->hc_req_args)) goto eargs;
+    TAILQ_FOREACH(arg, &hc->hc_req_args, link)
+      tvhwarn(LS_SATIPS, "%i/%s/%i: extra parameter '%s'='%s'",
+        rs->frontend, rs->session, rs->stream,
+        arg->key, arg->val);
 
     dmc->u.dmc_fe_ofdm.bandwidth = bw;
     dmc->u.dmc_fe_ofdm.code_rate_HP = fec;
@@ -1243,7 +1249,10 @@ rtsp_parse_cmd
     fec = fec_to_tvh(hc);
     if (fec == DVB_FEC_NONE) goto end;
 
-    if (!TAILQ_EMPTY(&hc->hc_req_args)) goto eargs;
+    TAILQ_FOREACH(arg, &hc->hc_req_args, link)
+      tvhwarn(LS_SATIPS, "%i/%s/%i: extra parameter '%s'='%s'",
+        rs->frontend, rs->session, rs->stream,
+        arg->key, arg->val);
 
     dmc->u.dmc_fe_qam.symbol_rate = sr;
     dmc->u.dmc_fe_qam.fec_inner = fec;
@@ -1255,7 +1264,10 @@ rtsp_parse_cmd
 
     freq *= 1000;
     if (freq < 0) goto end;
-    if (!TAILQ_EMPTY(&hc->hc_req_args)) goto eargs;
+    TAILQ_FOREACH(arg, &hc->hc_req_args, link)
+      tvhwarn(LS_SATIPS, "%i/%s/%i: extra parameter '%s'='%s'",
+        rs->frontend, rs->session, rs->stream,
+        arg->key, arg->val);
 
   } else {
 
@@ -1319,13 +1331,6 @@ end:
   mpegts_pid_done(&delpids);
   mpegts_pid_done(&pids);
   return errcode;
-
-eargs:
-  TAILQ_FOREACH(arg, &hc->hc_req_args, link)
-    tvhwarn(LS_SATIPS, "%i/%s/%i: extra parameter '%s'='%s'",
-      rs->frontend, rs->session, rs->stream,
-      arg->key, arg->val);
-  goto end;
 }
 
 /*
@@ -1557,7 +1562,7 @@ rtsp_process_play(http_connection_t *hc, int cmd)
                         LS_SATIPS, "rtsp", "rtcp",
                         (rtp_src_ip != NULL && rtp_src_ip[0] != '\0') ? rtp_src_ip : rtsp_ip, 0, NULL,
                         4*1024, 4*1024,
-                        RTP_BUFSIZE, RTCP_BUFSIZE)) {
+                        RTP_BUFSIZE, RTCP_BUFSIZE, 0)) {
       errcode = HTTP_STATUS_INTERNAL;
       goto error;
     }

@@ -41,11 +41,21 @@ vaapi_get_scale_filter(AVCodecContext *iavctx, AVCodecContext *oavctx, char *fil
 int
 vaapi_get_deint_filter(AVCodecContext *avctx, char *filter, size_t filter_len);
 
+int
+vaapi_get_denoise_filter(AVCodecContext *avctx, int value, char *filter, size_t filter_len);
+
+int
+vaapi_get_sharpness_filter(AVCodecContext *avctx, int value, char *filter, size_t filter_len);
+
 
 /* encoding ================================================================= */
 
 int
+#if ENABLE_FFMPEG4_TRANSCODING
 vaapi_encode_setup_context(AVCodecContext *avctx);
+#else
+vaapi_encode_setup_context(AVCodecContext *avctx, int low_power);
+#endif
 
 void
 vaapi_encode_close_context(AVCodecContext *avctx);

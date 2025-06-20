@@ -1221,6 +1221,7 @@ tvheadend.idnode_editor = function(_uilevel, item, conf)
             !conf.noUIlevel) {
             uilevelBtn = tvheadend.idnode_uilevel_menu(uilevel, function(l) {
                 uilevel = l;
+                tvheadend.uiviewlevel = l;
                 var values = panel.getForm().getFieldValues();
                 destroy();
                 build();
@@ -1572,6 +1573,7 @@ tvheadend.idnode_create = function(conf, onlyDefault, cloneValues)
             abuttons.uilevel = tvheadend.idnode_uilevel_menu(uilevel, function (l) {
                 values = panel.getForm().getFieldValues();
                 uilevel = l;
+                tvheadend.uiviewlevel = l;
                 createwin();
             });
             buttons.push('->');
@@ -1740,6 +1742,8 @@ tvheadend.idnode_grid = function(panel, conf)
         var params = {};
         if (conf.all) params['all'] = 1;
         if (conf.extraParams) conf.extraParams(params);
+
+        if(!params['limit']) params['limit'] = tvheadend.page_size;
 
         groupReader = new Ext.data.JsonReader({
             totalProperty: 'total',
@@ -2036,7 +2040,7 @@ tvheadend.idnode_grid = function(panel, conf)
                 data: [[25, '25'], [50, '50'], [100, '100'],
                     [200, '200'], [999999999, _('All')]]
             }),
-            value: 50,
+            value: tvheadend.page_size,
             mode: 'local',
             forceSelection: false,
             triggerAction: 'all',
@@ -2087,6 +2091,7 @@ tvheadend.idnode_grid = function(panel, conf)
         if (!tvheadend.uilevel_nochange && (!conf.uilevel || conf.uilevel !== 'expert')) {
             abuttons.uilevel = tvheadend.idnode_uilevel_menu(uilevel, function (l) {
                 uilevel = l;
+                tvheadend.uiviewlevel = l;
                 for (var i = 0; i < ifields.length; i++)
                     if (!ifields[i].noui) {
                         var h = ifields[i].get_hidden(uilevel);
@@ -2489,6 +2494,7 @@ tvheadend.idnode_form_grid = function(panel, conf)
         if (!tvheadend.uilevel_nochange && (!conf.uilevel || conf.uilevel !== 'expert')) {
             abuttons.uilevel = tvheadend.idnode_uilevel_menu(uilevel, function (l) {
                 uilevel = l;
+                tvheadend.uiviewlevel = l;
                 var values = null;
                 if (current)
                     values = current.editor.getForm().getFieldValues();
@@ -2923,6 +2929,7 @@ tvheadend.idnode_simple = function(panel, conf)
             if (l === uilevel)
                 return;
             uilevel = l;
+            tvheadend.uiviewlevel = l;
             if (!refresh)
                 return;
             var values = null;

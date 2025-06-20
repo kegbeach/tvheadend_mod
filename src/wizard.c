@@ -145,7 +145,7 @@ static void hello_changed(idnode_t *in)
 {
   wizard_page_t *p = (wizard_page_t *)in;
   wizard_hello_t *w = p->aux;
-  char buf[32];
+  char buf[64];
   size_t l = 0;
   int save = 0;
 
@@ -685,6 +685,9 @@ wizard_page_t *wizard_network(const char *lang)
 
   for (idx = 0; idx < ARRAY_SIZE(props); idx++)
     w->props[idx] = props[idx];
+
+  if (!tvh_inputs.lh_first)
+    return page;
 
   for (ti = LIST_LAST(tvh_input_t, &tvh_inputs, ti_link); ti;
        ti = LIST_PREV(ti, tvh_input_t, &tvh_inputs, ti_link)) {

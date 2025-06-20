@@ -180,6 +180,7 @@ comet_access_update(http_connection_t *hc, comet_mailbox_t *cmb)
     }
   }
   htsmsg_add_str(m, "theme", access_get_theme(hc->hc_access));
+  htsmsg_add_u32(m, "page_size", config.page_size_ui);
   htsmsg_add_u32(m, "quicktips", config.ui_quicktips);
   htsmsg_add_u32(m, "chname_num", config.chname_num);
   htsmsg_add_u32(m, "chname_src", config.chname_src);
@@ -347,7 +348,7 @@ comet_mailbox_poll(http_connection_t *hc, const char *remain, void *opaque)
 
   htsmsg_json_serialize(m, &hc->hc_reply, 0);
   htsmsg_destroy(m);
-  http_output_content(hc, "text/x-json; charset=UTF-8");
+  http_output_content(hc, "application/json; charset=UTF-8");
   return 0;
 }
 
@@ -552,7 +553,7 @@ comet_mailbox_rewrite_msg(int rewrite, htsmsg_t *m, const char *lang)
  *
  */
 void
-comet_mailbox_add_message(htsmsg_t *m, int isdebug, int rewrite)
+comet_mailbox_add_message(htsmsg_t *m, int isdebug, int isrestricted, int rewrite)
 {
   comet_mailbox_t *cmb;
   htsmsg_t *e;
@@ -565,7 +566,7 @@ comet_mailbox_add_message(htsmsg_t *m, int isdebug, int rewrite)
   if (atomic_get(&comet_running)) {
     LIST_FOREACH(cmb, &mailboxes, cmb_link) {
 
-      if(cmb->cmb_restricted)
+      if(isrestricted && cmb->cmb_restricted)
         continue;
 
       if(isdebug && !cmb->cmb_debug)
@@ -593,6 +594,6 @@ comet_mailbox_add_logmsg(const char *txt, int isdebug, int rewrite)
   htsmsg_t *m = htsmsg_create_map();
   htsmsg_add_str(m, "notificationClass", "logmessage");
   htsmsg_add_str(m, "logtxt", txt);
-  comet_mailbox_add_message(m, isdebug, 0);
+  comet_mailbox_add_message(m, isdebug, 1, 0);
   htsmsg_destroy(m);
 }

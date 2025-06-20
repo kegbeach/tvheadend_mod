@@ -24,7 +24,9 @@
 #include "config.h"
 #include "http.h"
 #include "tcp.h"
+#include "udp_stream.h"
 #include "webui.h"
+#include "htsmsg_json.h"
 #include "dvr/dvr.h"
 #include "filebundle.h"
 #include "streaming.h"
@@ -251,6 +253,8 @@ page_static_file(http_connection_t *hc, const char *_remain, void *opaque)
     postfix++;
     if(!strcmp(postfix, "js"))
       content = "text/javascript; charset=UTF-8";
+    else if(!strcmp(postfix, "html"))
+      content = "text/html; charset=UTF-8";
     else if(!strcmp(postfix, "css"))
       content = "text/css; charset=UTF-8";
     else if(!strcmp(postfix, "git"))
@@ -336,7 +340,7 @@ http_stream_run(http_connection_t *hc, profile_chain_t *prch,
   int run = 1, started = 0;
   streaming_queue_t *sq = &prch->prch_sq;
   muxer_t *mux = prch->prch_muxer;
-  int ptimeout, grace = 20, r;
+  int ptimeout = 5, ptimeout_start = 0, grace = 20, r;
   struct timeval tp;
   streaming_start_t *ss_copy;
   int64_t lastpkt, mono;
@@ -352,7 +356,23 @@ http_stream_run(http_connection_t *hc, profile_chain_t *prch,
     socket_set_dscp(hc->hc_fd, config.dscp, NULL, 0);
 
   lastpkt = mclk();
-  ptimeout = prch->prch_pro ? prch->prch_pro->pro_timeout : 5;
+
+  if (prch->prch_pro) {
+    struct profile *pro = prch->prch_pro;
+
+    ptimeout = pro->pro_timeout;
+    ptimeout_start = pro->pro_timeout_start;
+    tvhdebug(LS_WEBUI, "Using timeouts from profile: %s", pro->pro_name);
+    tvhdebug(LS_WEBUI, "Packet timeout (from profile): %d secs", ptimeout);
+  } else {
+    tvhdebug(LS_WEBUI, "Packet timeout (default): %d secs", ptimeout);
+  }
+  if (ptimeout_start > 0) {
+    grace = ptimeout_start;
+    tvhdebug(LS_WEBUI, "Grace period (from profile): %d secs", grace);
+  } else {
+    tvhdebug(LS_WEBUI, "Grace period (default): %d secs", grace);
+  }
 
   if (hc->hc_no_output) {
     tvh_mutex_lock(&sq->sq_mutex);
@@ -372,9 +392,11 @@ http_stream_run(http_connection_t *hc, profile_chain_t *prch,
           if (tcp_socket_dead(hc->hc_fd)) {
             tvhdebug(LS_WEBUI,  "Stop streaming %s, client hung up", hc->hc_url_orig);
             run = 0;
-          } else if((!started && mclk() - lastpkt > sec2mono(grace)) ||
-                     (started && ptimeout > 0 && mclk() - lastpkt > sec2mono(ptimeout))) {
-            tvhwarn(LS_WEBUI,  "Stop streaming %s, timeout waiting for packets", hc->hc_url_orig);
+          } else if (!started && mclk() - lastpkt > sec2mono(grace)) {
+            tvhwarn(LS_WEBUI, "Stop streaming %s, timeout (%d secs) waiting for data packets to start", hc->hc_url_orig, grace);
+            run = 0;
+          } else if (started && ptimeout > 0 && mclk() - lastpkt > sec2mono(ptimeout)) {
+            tvhwarn(LS_WEBUI, "Stop streaming %s, timeout (%d secs) waiting for data packets", hc->hc_url_orig, ptimeout);
             run = 0;
           }
           break;
@@ -406,11 +428,17 @@ http_stream_run(http_connection_t *hc, profile_chain_t *prch,
       break;
 
     case SMT_GRACE:
-      grace = sm->sm_code < 5 ? 5 : grace;
+      if (sm->sm_code > grace) {
+        grace = sm->sm_code > 5 ? sm->sm_code : 5;
+        tvhdebug(LS_WEBUI, "Increased grace period to %d secs", grace);
+      } else {
+        tvhdebug(LS_WEBUI, "Ignored grace period change to %d secs", sm->sm_code);
+      }
       break;
 
     case SMT_START:
       grace = 10;
+      tvhdebug(LS_WEBUI, "New grace period: %d secs", grace);
       if(!started) {
         tvhdebug(LS_WEBUI, "%s streaming %s",
                  hc->hc_no_output ? "Probe" : "Start", hc->hc_url_orig);
@@ -514,7 +542,7 @@ http_m3u_playlist_add(htsbuf_queue_t *hq, const char *hostpath,
   if (!strempty(logo)) {
     int id = imagecache_get_id(logo);
     if (id) {
-      htsbuf_qprintf(hq, " logo=\"%s/imagecache/%d", hostpath, id);
+      htsbuf_qprintf(hq, " tvg-logo=\"%s/imagecache/%d", hostpath, id);
       switch (urlauth) {
       case URLAUTH_NONE:
         break;
@@ -528,7 +556,7 @@ http_m3u_playlist_add(htsbuf_queue_t *hq, const char *hostpath,
       }
       htsbuf_append_str(hq, "\"");
     } else {
-      htsbuf_qprintf(hq, " logo=\"%s\"", logo);
+      htsbuf_qprintf(hq, " tvg-logo=\"%s\"", logo);
     }
   }
   if (epgid)
@@ -1182,6 +1210,117 @@ http_stream_service(http_connection_t *hc, service_t *service, int weight)
   return res;
 }
 
+static int
+udp_stream_service(http_connection_t *hc, service_t *service, int weight)
+{
+  th_subscription_t *s;
+  udp_connection_t *uc;
+  profile_t *pro;
+  muxer_hints_t *hints;
+  const char *str;
+  size_t qsize;
+  const char *address;
+  int port;
+  int res = HTTP_STATUS_SERVICE;
+  int flags, eflags = 0;
+  udp_stream_t *ustream;
+  size_t unlen;
+  char *stop_url;  
+  int pos;
+
+  if ((str = http_arg_get(&hc->hc_req_args, "port"))) {
+    port = atol(str);
+  } else {
+    tvhwarn(LS_WEBUI, "No port supplied in udp stream request");
+    return res;
+  }
+  if (!(address = http_arg_get(&hc->hc_req_args, "address"))) {
+    tvhwarn(LS_WEBUI, "No address supplied in udp stream request");
+    return res;
+  }
+
+  unlen = strlen(str) + strlen(address) + 2;
+  hc->hc_username = malloc(unlen);
+  snprintf(hc->hc_username, unlen, "%s:%s", address, str);
+
+  if (!(uc = udp_bind(LS_UDP, "udp_streamer",
+                       address, port, NULL,
+                       NULL, 1024, 188*7, 0))) {
+    tvhwarn(LS_WEBUI, "Could not create and bind udp socket");
+    return res; 
+  }  
+
+  if (udp_connect (uc, "udp_streamer", address, port)) {
+    tvhwarn(LS_WEBUI, "Could not connect udp socket");
+    return res;
+  }  
+
+  if ((str = http_arg_get(&hc->hc_req_args, "descramble")))
+    if (strcmp(str, "0") == 0)
+      eflags |= SUBSCRIPTION_NODESCR;
+
+  if ((str = http_arg_get(&hc->hc_req_args, "emm")))
+    if (strcmp(str, "1") == 0)
+      eflags |= SUBSCRIPTION_EMM;
+
+  flags = SUBSCRIPTION_MPEGTS | eflags;
+  if ((eflags & SUBSCRIPTION_NODESCR) == 0)
+    flags |= SUBSCRIPTION_PACKET;
+  if(!(pro = profile_find_by_list(hc->hc_access->aa_profiles,
+                                  http_arg_get(&hc->hc_req_args, "profile"),
+                                  "service", flags))) {
+    udp_close(uc);
+    return HTTP_STATUS_NOT_ALLOWED;
+  }
+
+  stop_url = strdup(hc->hc_url_orig);
+  unlen = strlen(hc->hc_url_orig) - 1;
+  str = strstr(hc->hc_url_orig, "start");
+  pos = str - hc->hc_url_orig;
+  if (str && (pos > 0))
+    snprintf(&stop_url[pos], unlen-pos+1, "stop%s", &str[5]);
+
+  ustream = create_udp_stream(uc, stop_url);
+  free(stop_url);
+  if (!ustream) {
+    udp_close(uc);
+    return HTTP_STATUS_NOT_ALLOWED;    
+  }
+
+  if ((str = http_arg_get(&hc->hc_req_args, "qsize")))
+    qsize = atoll(str);
+  else
+    qsize = 1500000;
+
+  hints = muxer_hints_create(http_arg_get(&hc->hc_args, "User-Agent"));
+
+  profile_chain_init(&ustream->us_prch, pro, service, 1);
+  if (!profile_chain_open(&ustream->us_prch, NULL, hints, 0, qsize)) {
+
+    s = subscription_create_from_service(&ustream->us_prch, NULL, weight ?: 100, "UDP",
+                                         ustream->us_prch.prch_flags | SUBSCRIPTION_STREAMING |
+                                           eflags,
+                                         address,
+		                         http_username(hc),
+		                         http_arg_get(&hc->hc_args, "User-Agent"),
+                             NULL);
+    if(s) {
+      ustream->us_content_name = strdup(service->s_nicename);
+      ustream->us_subscript = s;
+      ustream->us_global_lock = &global_lock;
+      udp_stream_run(ustream);
+      http_output_html(hc);
+      close(hc->hc_fd);
+      return 0;
+    }
+  }
+
+  profile_chain_close(&ustream->us_prch);
+  udp_close(uc);
+  delete_udp_stream(ustream);
+  return res;
+}
+
 /**
  * Subscribe to a mux for grabbing a raw dump
  *
@@ -1325,17 +1464,107 @@ http_stream_channel(http_connection_t *hc, channel_t *ch, int weight)
   return res;
 }
 
-
-/**
- * Handle the http request. http://tvheadend/stream/channelid/<chid>
- *                          http://tvheadend/stream/channel/<uuid>
- *                          http://tvheadend/stream/channelnumber/<channelnumber>
- *                          http://tvheadend/stream/channelname/<channelname>
- *                          http://tvheadend/stream/service/<servicename>
- *                          http://tvheadend/stream/mux/<muxid>
- */
 static int
-http_stream(http_connection_t *hc, const char *remain, void *opaque)
+udp_stream_channel(http_connection_t *hc, channel_t *ch, int weight)
+{
+  th_subscription_t *s;
+  udp_connection_t *uc;
+  profile_t *pro;
+   muxer_hints_t *hints;
+  const char *str;
+  size_t qsize;
+  const char *address;
+  int port;
+  int res = HTTP_STATUS_SERVICE;
+  udp_stream_t *ustream;
+  size_t unlen;
+  char *stop_url; 
+  int pos;
+
+  if ((str = http_arg_get(&hc->hc_req_args, "port"))) {
+    port = atol(str);
+  } else {
+    tvhwarn(LS_WEBUI, "No port supplied in udp stream request");
+    return res;
+  }
+  if (!(address = http_arg_get(&hc->hc_req_args, "address"))) {
+    tvhwarn(LS_WEBUI, "No address supplied in udp stream request");
+    return res;
+  }
+
+  unlen = strlen(str) + strlen(address) + 2;
+  hc->hc_username = malloc(unlen);
+  snprintf(hc->hc_username, unlen, "%s:%s", address, str);
+
+  if (!(uc = udp_bind(LS_UDP, "udp_streamer",
+                       address, port, NULL,
+                       NULL, 1024, 188*7, 0))) {
+    tvhwarn(LS_WEBUI, "Could not create and bind udp socket");
+    return res; 
+  }  
+
+  if (udp_connect (uc, "udp_streamer", address, port)) {
+    tvhwarn(LS_WEBUI, "Could not connect udp socket");
+    return res;
+  }  
+
+  if(!(pro = profile_find_by_list(hc->hc_access->aa_profiles,
+                                  http_arg_get(&hc->hc_req_args, "profile"),
+                                  "channel", 
+                                  SUBSCRIPTION_PACKET | SUBSCRIPTION_MPEGTS))) {
+    udp_close(uc);
+    return HTTP_STATUS_NOT_ALLOWED;
+  }  
+
+  stop_url = strdup(hc->hc_url_orig);
+  unlen = strlen(hc->hc_url_orig) - 1;
+  str = strstr(hc->hc_url_orig, "start");
+  pos = str - hc->hc_url_orig;
+  if (str && (pos > 0))
+    snprintf(&stop_url[pos], unlen-pos+1, "stop%s", &str[5]);
+
+  ustream = create_udp_stream(uc, stop_url);
+  free(stop_url);
+  if (!ustream) {
+    udp_close(uc);
+    return HTTP_STATUS_NOT_ALLOWED;    
+  }
+
+  if ((str = http_arg_get(&hc->hc_req_args, "qsize")))
+    qsize = atoll(str);
+  else
+    qsize = 1500000;
+
+ hints = muxer_hints_create(http_arg_get(&hc->hc_args, "User-Agent"));
+
+  profile_chain_init(&ustream->us_prch, pro, ch, 1);
+  if (!profile_chain_open(&ustream->us_prch, NULL, hints, 0, qsize)) {
+
+    s = subscription_create_from_channel(&ustream->us_prch, NULL, weight ?: 100, "UDP",
+                                         ustream->us_prch.prch_flags | SUBSCRIPTION_STREAMING,
+                                         address,
+		                         http_username(hc),
+		                         http_arg_get(&hc->hc_args, "User-Agent"),
+                             NULL);
+    if(s) {
+      ustream->us_content_name = strdup(channel_get_name(ch, channel_blank_name));
+      ustream->us_subscript = s;
+      ustream->us_global_lock = &global_lock;
+      udp_stream_run(ustream);
+      http_output_html(hc);
+      close(hc->hc_fd);
+      return 0;
+    }
+  }
+
+  profile_chain_close(&ustream->us_prch);
+  udp_close(uc);
+  delete_udp_stream(ustream);
+  return res;
+}
+
+static int
+do_stream(http_connection_t *hc, const char *remain, void *opaque, int isUdp)
 {
   char *components[2];
   channel_t *ch = NULL;
@@ -1379,9 +1608,9 @@ http_stream(http_connection_t *hc, const char *remain, void *opaque)
   }
 
   if(ch != NULL) {
-    r = http_stream_channel(hc, ch, weight);
+    r = isUdp ? udp_stream_channel(hc, ch, weight) : http_stream_channel(hc, ch, weight);
   } else if(service != NULL) {
-    r = http_stream_service(hc, service, weight);
+    r = isUdp ? udp_stream_service(hc, service, weight) : http_stream_service(hc, service, weight);
 #if ENABLE_MPEGTS
   } else if(mm != NULL) {
     r = http_stream_mux(hc, mm, weight);
@@ -1392,6 +1621,66 @@ http_stream(http_connection_t *hc, const char *remain, void *opaque)
 
   tvh_mutex_unlock(&global_lock);
   return r;
+}
+
+/**
+ * Handle the http request. http://tvheadend/stream/channelid/<chid>
+ *                          http://tvheadend/stream/channel/<uuid>
+ *                          http://tvheadend/stream/channelnumber/<channelnumber>
+ *                          http://tvheadend/stream/channelname/<channelname>
+ *                          http://tvheadend/stream/service/<servicename>
+ *                          http://tvheadend/stream/mux/<muxid>
+ */
+static int
+http_stream(http_connection_t *hc, const char *remain, void *opaque) {
+  return do_stream(hc, remain, opaque, 0);
+}
+
+/**
+ * Handle the http request. http://tvheadend/udpstream/start/channelid/<chid>?address=<destaddr>&port=<udpport>
+ *                          http://tvheadend/udpstream/start/channel/<uuid>?address=<destaddr>&port=<udpport>
+ *                          http://tvheadend/udpstream/start/channelnumber/<channelnumber>?address=<destaddr>&port=<udpport>
+ *                          http://tvheadend/udpstream/start/channelname/<channelname>?address=<destaddr>&port=<udpport>
+ *                          http://tvheadend/udpstream/start/service/<servicename>?address=<destaddr>&port=<udpport>
+ */
+static int
+start_udp_stream(http_connection_t *hc, const char *remain, void *opaque) {
+  return do_stream(hc, remain, opaque, 1);
+}
+
+/**
+ * Handle the http request. http://tvheadend/udpstream/stop/channelid/<chid>?address=<destaddr>&port=<udpport>
+ *                          http://tvheadend/udpstream/stop/channel/<uuid>?address=<destaddr>&port=<udpport>
+ *                          http://tvheadend/udpstream/stop/channelnumber/<channelnumber>?address=<destaddr>&port=<udpport>
+ *                          http://tvheadend/udpstream/stop/channelname/<channelname>?address=<destaddr>&port=<udpport>
+ *                          http://tvheadend/udpstream/stop/service/<servicename>?address=<destaddr>&port=<udpport>
+ */
+static int
+stop_udp_stream(http_connection_t *hc, const char *remain, void *opaque) {
+  char *components[2];
+  udp_stream_t *us;
+
+  hc->hc_keep_alive = 0;
+
+  if(remain == NULL)
+    return HTTP_STATUS_BAD_REQUEST;
+
+  if(http_tokenize((char *)remain, components, 2, '/') != 2)
+    return HTTP_STATUS_BAD_REQUEST;
+
+  http_deescape(components[1]);
+
+  us = find_udp_stream_by_hint(hc->hc_url_orig);
+  if (us) {
+    tvhdebug(LS_WEBUI, "Stop UDP stream %s", us->us_udp_url);
+    udp_stream_shutdown(us);
+  } else {
+    tvhwarn(LS_WEBUI,  "UDP stream not found (stop request %s)", hc->hc_url_orig);
+  }
+
+  http_output_html(hc);
+  close(hc->hc_fd);
+  return 0;
 }
 
 /**
@@ -1597,6 +1886,278 @@ page_play_auth(http_connection_t *hc, const char *remain, void *opaque)
   return page_play_(hc, remain, opaque, URLAUTH_CODE);
 }
 
+
+
+#if ENABLE_HDHOMERUN_SERVER
+/*
+ * Get the HDHomerun server name.
+ */ 
+static const char *hdhomerun_get_server_name(void)
+{
+  return config.server_name ?: "Tvheadend";
+}
+
+/**
+ * Our unique device id is calculated from our server's name
+ * in the general config tab.
+ */
+static uint32_t hdhomerun_get_deviceid(void)
+{
+  const char *server_name = hdhomerun_get_server_name();
+  const uint32_t deviceid = tvh_crc32((const uint8_t*)server_name, strlen(server_name), 0);
+  return deviceid;
+}
+
+/*
+ * Get the model name, defaulting to a commonly used version.
+ */ 
+static const char *hdhomerun_get_model_name(void)
+{
+  if (config.hdhomerun_server_model_name && !strempty(config.hdhomerun_server_model_name))
+    return config.hdhomerun_server_model_name;
+  else
+    return "HDTC-2US";
+}
+
+
+/**
+ * Check if the request has streaming rights. For almost all HDHomerun clients 
+ * this will require setting up an access rule without a username. but with IP matching.
+ * @param fail_log_reason Log this reason if permissions fail.
+ * @return Permission for the verified user (caller owns the memory) or NULL.
+ */
+__attribute__((warn_unused_result))
+static access_t *hdhomerun_verify_user_permission(const http_connection_t *hc,
+                                                  const char *fail_log_reason)
+{
+  // HDHomerun emulation not explicitly enabled?  Then all calls fail. 
+  if (!config.hdhomerun_server_enable) {
+    tvhwarn(LS_WEBUI, "hdhomerun server not enabled but received request [%s]",
+            fail_log_reason?:"");
+    return NULL;
+  }
+
+  const char *hdhr_user = hc->hc_username ?: "";
+  access_t *perm = hc->hc_access;
+
+  if (access_verify2(perm, ACCESS_STREAMING)) {
+    // Acces verification Failed 
+    tvhwarn(LS_WEBUI, "hdhomerun server received request but no streaming permission for user [%s] [%d] [%s]",
+            hdhr_user ?: "<none>",
+            perm? perm->aa_rights : 0,
+            fail_log_reason?:"");
+    return NULL;
+  } else {
+    return perm;
+  }
+}
+
+
+/**
+ * Return the discovery information for HDHomeRun to give clients
+ * details of how to access the lineup.
+ */
+static int
+hdhomerun_server_discover(http_connection_t *hc, const char *remain, void *opaque)
+{
+  access_t *perm = hdhomerun_verify_user_permission(hc, "discover");
+  if (!perm)
+    return http_noaccess_code(hc);
+
+  char http_ip[128];
+  htsbuf_queue_t *hq = &hc->hc_reply;
+  const char *server_name = hdhomerun_get_server_name();
+  const uint32_t deviceid = hdhomerun_get_deviceid();
+
+  tcp_get_str_from_ip(hc->hc_self, http_ip, sizeof(http_ip));
+
+  // The contents below for the discovery message are based on jkaberg/tvhProxy 
+  htsmsg_t *msg = htsmsg_create_map();
+  htsmsg_add_str(msg, "FriendlyName", server_name);
+  htsmsg_add_str(msg,"FirmwareVersion", tvheadend_version);
+  // Currently hardcoded until we encounter a client that has a problem.
+  htsmsg_add_str(msg, "FirmwareName", "hdhomerun_atsc");
+  // We use same value for model name/number to avoid too many user
+  // configuration options.
+  htsmsg_add_str(msg, "ModelNumber", hdhomerun_get_model_name());
+  htsmsg_add_str(msg, "Manufacturer", "Tvheadend");
+  // Random string, but has to be fixed length.
+  htsmsg_add_str(msg, "DeviceAuth", "3xw5UaJXhVShHEBoy76FuYQi");
+  htsmsg_add_str_printf(msg, "BaseURL", "http://%s:%u", http_ip, tvheadend_webui_port);
+  htsmsg_add_str_printf(msg, "DeviceID", "%08X", deviceid);
+  htsmsg_add_str_printf(msg, "LineupURL", "http://%s:%u/lineup.json", http_ip, tvheadend_webui_port);
+
+  // If user has not explicitly set a count then we use a default.
+  // The actual number of tuners is unknown since we allow multiplex
+  // sharing and some channels may actually be iptv channels so not
+  // use a tuner at all.
+  htsmsg_add_u32(msg, "TunerCount", config.hdhomerun_server_tuner_count ?: 6);
+
+  char *json = htsmsg_json_serialize_to_str(msg, 1);
+  htsmsg_destroy(msg);
+  htsbuf_append_str(hq, json);
+  free(json);
+  http_output_content(hc, "application/json");
+  return 0;
+}
+
+
+/**
+ * Return the channel lineup for HDHomeRun
+ */
+static int
+hdhomerun_server_lineup(http_connection_t *hc, const char *remain, void *opaque)
+{
+  access_t *perm = hdhomerun_verify_user_permission(hc, "lineup");
+  if (!perm)
+    return http_noaccess_code(hc);
+
+  htsbuf_queue_t *hq = &hc->hc_reply;
+  channel_t *ch;
+  const char *name;
+  const char *blank;
+  const char *chnum_str;
+  const int use_auth = perm && perm->aa_auth && !strempty(perm->aa_auth);
+  char buf1[128], chnum[32], ubuf[UUID_HEX_SIZE];
+  char url[1024];
+  char http_ip[128];
+  // We use the UI flags to determine if we should include channel
+  // numbers/sources in the name.  This can help distinguish channels
+  // when you have multiple different sources of the same channel such
+  // as satellite and aerial.
+  const int flags =
+    (config.chname_num ? CHANNEL_ENAME_NUMBERS : 0) |
+    (config.chname_src ? CHANNEL_ENAME_SOURCES : 0);
+  int is_first = 1;
+
+  tcp_get_str_from_ip(hc->hc_self, http_ip, sizeof(http_ip));
+  blank = tvh_gettext_lang(perm->aa_lang_ui, channel_blank_name);
+  htsbuf_append_str(hq, "[");
+  tvh_mutex_lock(&global_lock);
+  CHANNEL_FOREACH(ch) {
+    if (!channel_access(ch, perm, 0) || !ch->ch_enabled)
+      continue;
+    if (!is_first)
+      htsbuf_append_str(hq, ", \n");
+    name = channel_get_ename(ch, buf1, sizeof(buf1), blank, flags);
+    htsbuf_append_str(hq, "{ \"GuideName\" : ");
+    htsbuf_append_and_escape_jsonstr(hq, name);
+    htsbuf_append_str(hq, ", \"GuideNumber\" : ");
+    // channel_get_number_as_str returns NULL if no channel number!
+    chnum_str = channel_get_number_as_str(ch, chnum, sizeof(chnum));
+    htsbuf_append_and_escape_jsonstr(hq, chnum_str ? chnum_str : "0");
+    htsbuf_append_str(hq, ", \"URL\" : ");
+    sprintf(url, "http://%s:%u/stream/channel/%s?profile=pass%s%s",
+            http_ip,
+            tvheadend_webui_port,
+            channel_get_uuid(ch, ubuf),
+            use_auth? "&auth=" : "",
+            use_auth ? perm->aa_auth : "");
+    htsbuf_append_and_escape_jsonstr(hq, url);
+    htsbuf_append_str(hq, "}");
+    is_first = 0;
+  }
+  tvh_mutex_unlock(&global_lock);
+  htsbuf_append_str(hq, "]");
+  http_output_content(hc, "application/json");
+  return 0;
+}
+
+
+static int
+hdhomerun_server_lineup_status(http_connection_t *hc, const char *remain, void *opaque)
+{
+  access_t *perm = hdhomerun_verify_user_permission(hc, "lineup_status");
+  if (!perm)
+    return http_noaccess_code(hc);
+
+  htsbuf_queue_t *hq = &hc->hc_reply;
+  // The contents below for the status message are based on jkaberg/tvhProxy.
+  htsbuf_append_str(hq, "{\"ScanInProgress\":0,\"ScanPossible\":0,\"Source\":\"Antenna\",\"SourceList\":[\"Antenna\"]}");
+  http_output_content(hc, "application/json");
+  return 0;
+}
+
+
+
+/**
+ * Some media players ignore the "scan not possible" and do a post to
+ * this function with "?scan=start".
+ *
+ * We currently ignore this request and just return success.
+ * This is because Tvheadend has separate scanning and mapping stages.
+ */
+static int
+hdhomerun_server_lineup_post(http_connection_t *hc, const char *remain, void *opaque)
+{
+  access_t *perm = hdhomerun_verify_user_permission(hc, "lineup_status");
+  if (!perm)
+    return http_noaccess_code(hc);
+
+  // We can't send empty contents since the caller thinks empty (size
+  // 0) is "unknown length" (for streaming data).  So, we'll return an
+  // empty json document.
+  htsbuf_append_str(&hc->hc_reply, "{}");
+  http_output_content(hc, "application/json");
+  return 0;
+}
+
+/**
+ * Needed for some clients.  This contains much the same as discover,
+ * but in xml format.
+ */
+static int
+hdhomerun_server_device_xml(http_connection_t *hc, const char *remain, void *opaque)
+{
+  access_t *perm = hdhomerun_verify_user_permission(hc, "device.xml");
+  if (!perm)
+    return http_noaccess_code(hc);
+
+  const char *server_name = hdhomerun_get_server_name();
+  const char *model_name = hdhomerun_get_model_name();
+  // Need to escape strings in xml 
+  char server_name_escaped[128];
+  char model_name_escaped[128];
+  char http_ip[128];
+  htsbuf_queue_t *hq = &hc->hc_reply;
+  const uint32_t deviceid = hdhomerun_get_deviceid();
+
+  html_escape(server_name_escaped, server_name, sizeof(server_name_escaped));
+  html_escape(model_name_escaped, model_name, sizeof(model_name_escaped));
+
+  // The contents below for the discovery message are based on jkaberg/tvhProxy 
+  tcp_get_str_from_ip(hc->hc_self, http_ip, sizeof(http_ip));
+  htsbuf_qprintf(hq, "<root xmlns=\"urn:schemas-upnp-org:device-1-0\">"
+                 "<specVersion>"
+                 "<major>1</major>"
+                 "<minor>0</minor>"
+                 "</specVersion>"
+                 "<URLBase>http://%s:%u</URLBase>"
+                 "<device>"
+                 "<deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType>"
+                 "<friendlyName>%s</friendlyName>"
+                 "<manufacturer>Tvheadend</manufacturer>"
+                 "<modelName>%s</modelName>"
+                 "<modelNumber>%s</modelNumber>"
+                 "<serialNumber></serialNumber>"
+                 // Version 5 UUID (random) with top part as server id
+                 "<UDN>uuid:%8.8x-745e-5d9a-8903-4a02327a7e09</UDN>"
+                 "</device>"
+                 "</root>",
+                 http_ip, tvheadend_webui_port,
+                 server_name_escaped,
+                 // We'll use the same for model name and number to
+                 // avoid too much user configuration.  Some clients
+                 // may use the model name to infer characteristics.
+                 model_name_escaped,
+                 model_name_escaped,
+                 deviceid);
+
+  http_output_content(hc, "application/xml");
+  return 0;
+}
+#endif  /* ENABLE_HDHOMERUN_SERVER */
+
 /**
  *
  */
@@ -1669,6 +2230,19 @@ page_srvid2(http_connection_t *hc, const char *remain, void *opaque)
 }
 
 /**
+ * Sanitice a filename to remove illegal characters from it
+ */
+static char *sanitize_filename(char *filename) {
+  if (!filename) return NULL;
+  char *s;
+  for (s = filename; *s; s++) {
+    if ((*s < 32) || (*s > 122) || strchr("/:\\<>|*?\"", *s) != NULL)
+      *s = '_';
+  }
+  return filename;
+}
+
+/**
  * Send a file
  */
 int
@@ -1708,6 +2282,7 @@ http_serve_file(http_connection_t *hc, const char *fname,
                  basename, intlconv_charset_id("ASCII", 1, 1));
         return HTTP_STATUS_INTERNAL;
       }
+      sanitize_filename(str0);
       htsbuf_queue_init(&q, 0);
       htsbuf_append_and_escape_rfc8187(&q, basename);
       str = htsbuf_to_string(&q);
@@ -2134,6 +2709,16 @@ webui_init(int xspf)
   http_path_add("/satip_server", NULL, satip_server_http_page, ACCESS_ANONYMOUS);
 #endif
 
+#if ENABLE_HDHOMERUN_SERVER
+  /* These names are specified in https://info.hdhomerun.com/info/http_api */
+  http_path_add("/discover.json", NULL, hdhomerun_server_discover, ACCESS_ANONYMOUS);
+  http_path_add("/lineup.json", NULL, hdhomerun_server_lineup, ACCESS_ANONYMOUS);
+  /* These names are not specified in the documents but are required to make Plex work. */
+  http_path_add("/lineup_status.json", NULL, hdhomerun_server_lineup_status, ACCESS_ANONYMOUS);
+  http_path_add("/lineup.post", NULL, hdhomerun_server_lineup_post, ACCESS_ANONYMOUS);
+  http_path_add("/device.xml", NULL, hdhomerun_server_device_xml, ACCESS_ANONYMOUS);
+#endif
+
   http_path_add_modify("/play", NULL, page_play, ACCESS_ANONYMOUS, page_play_path_modify5);
   http_path_add_modify("/play/ticket", NULL, page_play_ticket, ACCESS_ANONYMOUS, page_play_path_modify12);
   http_path_add_modify("/play/auth", NULL, page_play_auth, ACCESS_ANONYMOUS, page_play_path_modify10);
@@ -2149,6 +2734,8 @@ webui_init(int xspf)
   http_path_add("/state", NULL, page_statedump, ACCESS_ADMIN);
 
   http_path_add("/stream",  NULL, http_stream,  ACCESS_ANONYMOUS);
+  http_path_add("/udpstream/start",  NULL, start_udp_stream,  ACCESS_ANONYMOUS);
+  http_path_add("/udpstream/stop",  NULL, stop_udp_stream,  ACCESS_ANONYMOUS);
 
   http_path_add("/imagecache", NULL, page_imagecache, ACCESS_ANONYMOUS);
 

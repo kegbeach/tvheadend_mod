@@ -54,9 +54,15 @@ This list must be updated every time we use a new AV_CODEC_ID
 #define AV_CODEC_ID_DVB_TELETEXT CODEC_ID_DVB_TELETEXT
 #endif
 
+// Enable new transcoding starting ffmpeg 4
+#if LIBAVCODEC_VERSION_MAJOR < 58
+#define ENABLE_FFMPEG4_TRANSCODING 0
+#else
+#define ENABLE_FFMPEG4_TRANSCODING 1
+#endif
+
 enum AVCodecID streaming_component_type2codec_id(streaming_component_type_t type);
 streaming_component_type_t codec_id2streaming_component_type(enum AVCodecID id);
-int libav_is_encoder(AVCodec *codec);
 void libav_set_loglevel(void);
 void libav_vaapi_init_context(void *context);
 void libav_init(void);

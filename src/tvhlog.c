@@ -36,12 +36,11 @@
 #include "tcp.h"
 #include "webui/webui.h"
 
-#define TVHLOG_BITARRAY ((LS_LAST + (BITS_PER_LONG - 1)) / BITS_PER_LONG)
-
 int                      tvhlog_run;
 int                      tvhlog_level;
 int                      tvhlog_options;
 char                    *tvhlog_path;
+//TVHLOG_BITARRAY is defined in bitops.h
 bitops_ulong_t           tvhlog_debug[TVHLOG_BITARRAY];
 bitops_ulong_t           tvhlog_trace[TVHLOG_BITARRAY];
 pthread_t                tvhlog_tid;
@@ -181,9 +180,12 @@ tvhlog_subsys_t tvhlog_subsystems[] = {
   [LS_TSDEBUG]       = { "tsdebug",       N_("MPEG-TS Input Debug") },
   [LS_CODEC]         = { "codec",         N_("Codec") },
   [LS_VAAPI]         = { "vaapi",         N_("VA-API") },
+  [LS_VAINFO]        = { "vainfo",        N_("VAINFO") },
 #if ENABLE_DDCI
   [LS_DDCI]          = { "ddci",          N_("DD-CI") },
 #endif
+  [LS_UDP]           = { "udp",           N_("UDP Streamer") },
+  [LS_RATINGLABELS]  = { "ratinglabels",  N_("Rating Labels") },
 
 };
 
@@ -586,7 +588,7 @@ tvhlog_init ( int level, int options, const char *path )
     if (rtport > 0) {
       tvhlog_rtfd = tvh_socket(AF_INET, SOCK_DGRAM, 0);
       tcp_get_ip_from_str("127.0.0.1", &tvhlog_rtss);
-      IP_AS_V4(tvhlog_rtss, port) = htons(rtport);
+      IP_AS_V4(&tvhlog_rtss, port) = htons(rtport);
     }
   }
 #endif

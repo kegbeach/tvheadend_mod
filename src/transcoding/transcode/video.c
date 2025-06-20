@@ -17,7 +17,6 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "internals.h"
 
 #if ENABLE_HWACCELS
@@ -47,47 +46,112 @@ _video_filters_get_filters(TVHContext *self, AVDictionary **opts, char **filters
     char scale[24];
     char hw_scale[64];
     char upload[48];
+    char hw_denoise[64];
+    char hw_sharpness[64];
     int ihw = _video_filters_hw_pix_fmt(self->iavctx->pix_fmt);
     int ohw = _video_filters_hw_pix_fmt(self->oavctx->pix_fmt);
     int filter_scale = (self->iavctx->height != self->oavctx->height);
     int filter_deint = 0, filter_download = 0, filter_upload = 0;
+#if ENABLE_HWACCELS
+    int filter_denoise = 0;
+    int filter_sharpness = 0;
+#endif
 
     if (tvh_context_get_int_opt(opts, "tvh_filter_deint", &filter_deint)) {
         return -1;
     }
-    filter_download = (ihw && (!ohw || filter_scale || filter_deint)) ? 1 : 0;
-    filter_upload = ((filter_download || !ihw) && ohw) ? 1 : 0;
+#if ENABLE_VAAPI
+    filter_denoise = self->profile->filter_hw_denoise;
+    filter_sharpness = self->profile->filter_hw_sharpness;
+#endif
+    //  in --> out  |  download   |   upload 
+    // -------------|-------------|------------
+    //  hw --> hw   |     0       |     0
+    //  sw --> hw   |     0       |     1
+    //  hw --> sw   |     1       |     0
+    //  sw --> sw   |     0       |     0
+    filter_download = (ihw && (!ohw)) ? 1 : 0;
+    filter_upload = ((!ihw) && ohw) ? 1 : 0;
 
     memset(deint, 0, sizeof(deint));
     memset(hw_deint, 0, sizeof(hw_deint));
 #if ENABLE_HWACCELS
-    if (filter_deint &&
-        hwaccels_get_deint_filter(self->iavctx, hw_deint, sizeof(hw_deint))) {
+    if (filter_deint) {
+        // when hwaccel is enabled we have two options:
+        if (ihw) {
+            // hw deint
+            hwaccels_get_deint_filter(self->iavctx, hw_deint, sizeof(hw_deint));
+        }
+        else {
+            // sw deint
+            if (str_snprintf(deint, sizeof(deint), "yadif")) {
+                return -1;
+            }
+        }
+    }
 #else
     if (filter_deint) {
-#endif
         if (str_snprintf(deint, sizeof(deint), "yadif")) {
             return -1;
         }
     }
+#endif
 
     memset(scale, 0, sizeof(scale));
     memset(hw_scale, 0, sizeof(hw_scale));
 #if ENABLE_HWACCELS
-    if (filter_scale &&
-        hwaccels_get_scale_filter(self->iavctx, self->oavctx, hw_scale, sizeof(hw_scale))) {
+    if (filter_scale) {
+        // when hwaccel is enabled we have two options:
+        if (ihw) {
+            // hw scale
+            hwaccels_get_scale_filter(self->iavctx, self->oavctx, hw_scale, sizeof(hw_scale));
+        }
+        else {
+            // sw scale
+            if (str_snprintf(scale, sizeof(scale), "scale=w=-2:h=%d",
+                         self->oavctx->height)) {
+                return -1;
+            }
+        }
+    }
 #else
     if (filter_scale) {
-#endif
         if (str_snprintf(scale, sizeof(scale), "scale=w=-2:h=%d",
                          self->oavctx->height)) {
             return -1;
         }
     }
+#endif
 
+    memset(hw_denoise, 0, sizeof(hw_denoise));
+#if ENABLE_HWACCELS
+    if (filter_denoise) {
+        // used only when hwaccel is enabled
+        if (ihw) {
+            // hw scale
+            hwaccels_get_denoise_filter(self->iavctx, filter_denoise, hw_denoise, sizeof(hw_denoise));
+        }
+    }
+#endif
+
+    memset(hw_sharpness, 0, sizeof(hw_sharpness));
+#if ENABLE_HWACCELS
+    if (filter_sharpness) {
+        // used only when hwaccel is enabled
+        if (ihw) {
+            // hw scale
+            hwaccels_get_sharpness_filter(self->iavctx, filter_sharpness, hw_sharpness, sizeof(hw_sharpness));
+        }
+    }
+#endif
+
+#if ENABLE_HWACCELS
+    // no filter required.
+#else
     if (deint[0] == '\0' && scale[0] == '\0') {
         filter_download = filter_upload = 0;
     }
+#endif
 
     memset(download, 0, sizeof(download));
     if (filter_download &&
@@ -104,7 +168,7 @@ _video_filters_get_filters(TVHContext *self, AVDictionary **opts, char **filters
         return -1;
     }
 
-    if (!(*filters = str_join(",", hw_deint, hw_scale, download, deint, scale, upload, NULL))) {
+    if (!(*filters = str_join(",", hw_deint, hw_scale, hw_denoise, hw_sharpness, download, deint, scale, upload, NULL))) {
         return -1;
     }
 
@@ -160,12 +224,37 @@ tvh_video_context_open_encoder(TVHContext *self, AVDictionary **opts)
     }
 
 #if ENABLE_HWACCELS
-    self->oavctx->coded_width = self->oavctx->width;
-    self->oavctx->coded_height = self->oavctx->height;
-    if (hwaccels_encode_setup_context(self->oavctx)) {
+#if ENABLE_FFMPEG4_TRANSCODING
+    // hwaccel is the user input for Hardware acceleration from Codec parameteres
+    int hwaccel = -1;
+    if ((hwaccel = tvh_codec_profile_video_get_hwaccel(self->profile)) < 0) {
         return -1;
     }
-#endif
+    if (_video_filters_hw_pix_fmt(self->oavctx->pix_fmt)){
+        // encoder is hw accelerated
+        if (hwaccel) {
+            // decoder is hw accelerated 
+            // --> we initialize encoder from decoder as recomanded in: 
+            // ffmpeg-6.1.1/doc/examples/vaapi_transcode.c line 169
+            if (hwaccels_initialize_encoder_from_decoder(self->iavctx, self->oavctx)) {
+                return -1;
+            }
+        }
+        else {
+            // decoder is sw
+            // --> we initialize as recommended in:
+            // ffmpeg-6.1.1/doc/examples/vaapi_encode.c line 145
+            if (hwaccels_encode_setup_context(self->oavctx)) {
+                return -1;
+            }
+        }
+    }
+#else
+    if (hwaccels_encode_setup_context(self->oavctx, self->profile->low_power)) {
+        return -1;
+    }
+#endif // from ENABLE_FFMPEG4_TRANSCODING
+#endif // from ENABLE_HWACCELS
 
     // XXX: is this a safe assumption?
     if (!self->iavctx->framerate.num) {
@@ -210,6 +299,15 @@ tvh_video_context_open_filters(TVHContext *self, AVDictionary **opts)
         return -1;
     }
 
+#if LIBAVCODEC_VERSION_MAJOR > 59
+    int ret = tvh_context_open_filters(self,
+        "buffer", source_args,                                  // source
+        strlen(filters) ? filters : "null",                     // filters
+        "buffersink",                                           // sink
+        "pix_fmts", AV_OPT_SET_BIN,                             // sink option: pix_fmt
+        sizeof(self->oavctx->pix_fmt), &self->oavctx->pix_fmt,
+        NULL);                                                  // _IMPORTANT!_
+#else
     int ret = tvh_context_open_filters(self,
         "buffer", source_args,              // source
         strlen(filters) ? filters : "null", // filters
@@ -217,6 +315,7 @@ tvh_video_context_open_filters(TVHContext *self, AVDictionary **opts)
         "pix_fmts", &self->oavctx->pix_fmt, // sink option: pix_fmt
         sizeof(self->oavctx->pix_fmt),
         NULL);                              // _IMPORTANT!_
+#endif
     str_clear(filters);
     return ret;
 }
@@ -244,7 +343,7 @@ tvh_video_context_open(TVHContext *self, TVHOpenPhase phase, AVDictionary **opts
 static int
 tvh_video_context_encode(TVHContext *self, AVFrame *avframe)
 {
-    avframe->pts = av_frame_get_best_effort_timestamp(avframe);
+    avframe->pts = avframe->best_effort_timestamp;
     if (avframe->pts <= self->pts) {
         tvh_context_log(self, LOG_WARNING,
                         "Invalid pts (%"PRId64") <= last (%"PRId64"), dropping frame",
@@ -252,6 +351,15 @@ tvh_video_context_encode(TVHContext *self, AVFrame *avframe)
         return AVERROR(EAGAIN);
     }
     self->pts = avframe->pts;
+#if LIBAVUTIL_VERSION_MAJOR > 58 || (LIBAVUTIL_VERSION_MAJOR == 58 && LIBAVUTIL_VERSION_MINOR > 2)
+    if (avframe->flags & AV_FRAME_FLAG_INTERLACED) {
+        self->oavctx->field_order =
+            (avframe->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST) ? AV_FIELD_TB : AV_FIELD_BT;
+    }
+    else {
+        self->oavctx->field_order = AV_FIELD_PROGRESSIVE;
+    }
+#else
     if (avframe->interlaced_frame) {
         self->oavctx->field_order =
             avframe->top_field_first ? AV_FIELD_TB : AV_FIELD_BT;
@@ -259,6 +367,7 @@ tvh_video_context_encode(TVHContext *self, AVFrame *avframe)
     else {
         self->oavctx->field_order = AV_FIELD_PROGRESSIVE;
     }
+#endif
     return 0;
 }
 
@@ -276,36 +385,33 @@ tvh_video_context_ship(TVHContext *self, AVPacket *avpkt)
 
 static int
 tvh_video_context_wrap(TVHContext *self, AVPacket *avpkt, th_pkt_t *pkt)
-{
-    uint8_t *qsdata = NULL;
-    int qsdata_size = 0;
-    enum AVPictureType pict_type = AV_PICTURE_TYPE_NONE;
+{   
+    enum AVPictureType pict_type = self->oavframe->pict_type;
 
-    if (avpkt->flags & AV_PKT_FLAG_KEY) {
+    if (pict_type == AV_PICTURE_TYPE_NONE && avpkt->flags & AV_PKT_FLAG_KEY) {
         pict_type = AV_PICTURE_TYPE_I;
     }
-    else {
-        qsdata = av_packet_get_side_data(avpkt, AV_PKT_DATA_QUALITY_STATS,
-                                         &qsdata_size);
-        if (qsdata && qsdata_size >= 5) {
-            pict_type = qsdata[4];
+    if (pict_type == AV_PICTURE_TYPE_NONE) {
+        // some codecs do not set pict_type but set AV_FRAME_FLAG_KEY, in this case,
+        // we assume that when AV_FRAME_FLAG_KEY is set the frame is an I-frame
+        // (all the others are assumed to be P-frames)
+#if LIBAVUTIL_VERSION_MAJOR > 58 || (LIBAVUTIL_VERSION_MAJOR == 58 && LIBAVUTIL_VERSION_MINOR > 2)
+        if (self->oavframe->flags & AV_FRAME_FLAG_KEY) {
+            pict_type = AV_PICTURE_TYPE_I;
         }
-#if FF_API_CODED_FRAME
-        else if (self->oavctx->coded_frame) {
-            // some codecs do not set pict_type but set key_frame, in this case,
-            // we assume that when key_frame == 1 the frame is an I-frame
-            // (all the others are assumed to be P-frames)
-            if (!(pict_type = self->oavctx->coded_frame->pict_type)) {
-                if (self->oavctx->coded_frame->key_frame) {
-                    pict_type = AV_PICTURE_TYPE_I;
-                }
-                else {
-                    pict_type = AV_PICTURE_TYPE_P;
-                }
-            }
+        else {
+            pict_type = AV_PICTURE_TYPE_P;
+        }
+#else
+        if (self->oavframe->key_frame) {
+            pict_type = AV_PICTURE_TYPE_I;
+        }
+        else {
+            pict_type = AV_PICTURE_TYPE_P;
         }
 #endif
     }
+
     switch (pict_type) {
         case AV_PICTURE_TYPE_I:
             pkt->v.pkt_frametype = PKT_I_FRAME;
