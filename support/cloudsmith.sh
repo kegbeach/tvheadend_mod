@@ -49,16 +49,16 @@ if [[ -z $TARGET ]]; then
 fi
 
 case $OSPREFIX$TARGET in
-    bookworm|bullseye|buster|sid|stretch|jessie|trixie)
+    bookworm|bullseye|buster|sid|stretch|jessie|trixie|forky)
         OS="debian";;
     trusty|xenial|bionic|focal|impish|jammy|kinetic|lunar|mantic|noble)
         OS="ubuntu";;
     raspios*)
         OS="raspbian";;
-    37|38|39|40|41)
+    37|38|39|40|41|42)
         OS="fedora";;
-    42|43)
-        echo -e "${YELLOW}Fedora 42 and 43 (current rawhide) are not (yet) supported by Cloudsmith${NC}" && exit;;
+    43|44)
+        echo -e "${YELLOW}Fedora 43 (current rawhide) is not (yet) supported by Cloudsmith${NC}" && exit;;
     *) echo -e "${RED}OS $OSPREFIX$TARGET could not be recognized${NC}" && exit 1;;
 esac
 
