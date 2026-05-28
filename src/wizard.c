@@ -413,7 +413,7 @@ wizard_page_t *wizard_login(const char *lang)
       .id       = "network",
       .name     = N_("Allowed network"),
       .desc     = N_("Enter allowed network prefix(es). You can enter a "
-                     "comma-seperated list of prefixes here."),
+                     "comma-separated list of prefixes here."),
       .get      = wizard_get_value_network,
       .set      = wizard_set_value_network,
       .group    = 1
@@ -586,6 +586,7 @@ static void network_changed(idnode_t *in)
   .get  = network_get_value##num, \
   .set  = network_set_value##num, \
   .list = network_get_list##num, \
+  .opts = PO_LISTONLY, \
   .group = num, \
 }
 

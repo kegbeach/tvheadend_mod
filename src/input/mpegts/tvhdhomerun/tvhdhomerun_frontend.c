@@ -126,7 +126,7 @@ tvhdhomerun_frontend_input_thread ( void *aux )
     return NULL;
   }
 
-  /* important: we need large rx buffers to accomodate the large amount of traffic */
+  /* important: we need large rx buffers to accommodate the large amount of traffic */
   if(setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (char *) &rx_size, sizeof(rx_size)) < 0) {
     tvhwarn(LS_TVHDHOMERUN, "failed set socket rx buffer size, expect CC errors (%d)", errno);
   }
@@ -213,6 +213,7 @@ tvhdhomerun_frontend_input_thread ( void *aux )
   tvhdebug(LS_TVHDHOMERUN, "setting target to none");
   tvh_mutex_lock(&hfe->hf_hdhomerun_device_mutex);
   hdhomerun_device_set_tuner_target(hfe->hf_hdhomerun_tuner, "none");
+  hdhomerun_device_tuner_lockkey_release(hfe->hf_hdhomerun_tuner);
   tvh_mutex_unlock(&hfe->hf_hdhomerun_device_mutex);
 
   sbuf_free(&sb);
@@ -407,22 +408,28 @@ static int tvhdhomerun_frontend_tune(tvhdhomerun_frontend_t *hfe, mpegts_mux_ins
   tvhinfo(LS_TVHDHOMERUN, "tuning to %s", channel_buf);
 
   tvh_mutex_lock(&hfe->hf_hdhomerun_device_mutex);
+  
   res = hdhomerun_device_tuner_lockkey_request(hfe->hf_hdhomerun_tuner, &perror);
   if(res < 1) {
     tvh_mutex_unlock(&hfe->hf_hdhomerun_device_mutex);
     tvherror(LS_TVHDHOMERUN, "failed to acquire lockkey: %s", perror);
     return SM_CODE_TUNING_FAILED;
   }
+  
   if (hfe->hf_type == DVB_TYPE_CABLECARD)
     res = hdhomerun_device_set_tuner_vchannel(hfe->hf_hdhomerun_tuner, channel_buf);
   else
     res = hdhomerun_device_set_tuner_channel(hfe->hf_hdhomerun_tuner, channel_buf);
-  tvh_mutex_unlock(&hfe->hf_hdhomerun_device_mutex);
+
   if(res < 1) {
+    hdhomerun_device_tuner_lockkey_release(hfe->hf_hdhomerun_tuner);
+    tvh_mutex_unlock(&hfe->hf_hdhomerun_device_mutex);
     tvherror(LS_TVHDHOMERUN, "failed to tune to %s", channel_buf);
     return SM_CODE_TUNING_FAILED;
   }
 
+  tvh_mutex_unlock(&hfe->hf_hdhomerun_device_mutex);
+  
   hfe->hf_status = SIGNAL_NONE;
 
   /* start the monitoring */
@@ -479,7 +486,10 @@ tvhdhomerun_frontend_stop_mux
     tvhtrace(LS_TVHDHOMERUN, "%s - input thread stopped", buf1);
   }
 
+  tvh_mutex_lock(&hfe->hf_hdhomerun_device_mutex);
+  hdhomerun_device_set_tuner_target(hfe->hf_hdhomerun_tuner, "none");
   hdhomerun_device_tuner_lockkey_release(hfe->hf_hdhomerun_tuner);
+  tvh_mutex_unlock(&hfe->hf_hdhomerun_device_mutex);
 
   hfe->hf_locked = 0;
   hfe->hf_status = 0;
@@ -740,7 +750,7 @@ tvhdhomerun_frontend_wizard_set( tvh_input_t *ti, htsmsg_t *conf, const char *la
 
   mn = tvhdhomerun_frontend_wizard_network(hfe);
   mpegts_network_wizard_create(ntype, &nlist, lang);
-  if (ntype && (mn == NULL || mn->mn_wizard)) {
+  if (nlist && ntype && (mn == NULL || mn->mn_wizard)) {
     htsmsg_add_str(nlist, NULL, ntype);
     mpegts_input_set_networks((mpegts_input_t *)hfe, nlist);
     htsmsg_destroy(nlist);

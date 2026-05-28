@@ -310,6 +310,7 @@ struct epg_broadcast
                                                ///< We'll call it copyright_year since words like "complete" and "finished"
                                                ///< sound too similar to dvr recorded functionality. We'll only store the
                                                ///< year since we only get year not month and day.
+  char                       *xmltv_eid;       ///< XMLTV (or other) unique event identifier
 };
 
 /* Lookup */
@@ -318,6 +319,10 @@ epg_broadcast_t *epg_broadcast_find_by_time
     time_t start, time_t stop, int create, int *save, epg_changes_t *changes );
 epg_broadcast_t *epg_broadcast_find_by_eid ( struct channel *ch, uint16_t eid );
 epg_broadcast_t *epg_broadcast_find_by_id  ( uint32_t id );
+epg_broadcast_t *epg_broadcast_find_by_xmltv_eid
+  ( struct channel *ch, struct epggrab_module *src,
+    time_t start, time_t stop, int create,
+    int *save, epg_changes_t *changed, const char* xmltv_eid);
 
 /* Post-modify */
 int epg_broadcast_change_finish( epg_broadcast_t *b, epg_changes_t changed, int merge )
@@ -330,6 +335,9 @@ epg_broadcast_t *epg_broadcast_clone
 /* Mutators */
 int epg_broadcast_set_dvb_eid
   ( epg_broadcast_t *b, uint16_t dvb_eid, epg_changes_t *changed )
+  __attribute__((warn_unused_result));
+int epg_broadcast_set_xmltv_eid
+  ( epg_broadcast_t *b, const char *xmltv_eid, epg_changes_t *changed )
   __attribute__((warn_unused_result));
 int epg_broadcast_set_running
   ( epg_broadcast_t *b, epg_running_t running )
@@ -440,6 +448,8 @@ const char *epg_broadcast_get_keyword_cached
   ( epg_broadcast_t *b, const char *lang );
 const ratinglabel_t *epg_broadcast_get_rating_label
   ( epg_broadcast_t *b );
+char* epg_broadcast_get_merged_text
+  ( epg_broadcast_t *b );
 
 /* Episode number heplers */
 // Note: this does NOT strdup the text field
@@ -526,6 +536,7 @@ typedef struct epg_query {
   char             *stitle;
   tvh_regex_t       stitle_re;
   int               fulltext;
+  int               mergetext;
   int               new_only;
   char             *channel;
   char             *channel_tag;
