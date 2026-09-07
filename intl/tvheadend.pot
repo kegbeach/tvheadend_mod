@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-27 03:07+0000\n"
+"POT-Creation-Date: 2026-09-07 07:09+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -344,7 +344,7 @@ msgstr ""
 msgid "AAC"
 msgstr ""
 
-#: src/profile.c:1929
+#: src/profile.c:1944
 msgid "AAC audio"
 msgstr ""
 
@@ -361,11 +361,11 @@ msgstr ""
 msgid "AC-3 detection"
 msgstr ""
 
-#: src/profile.c:1932
+#: src/profile.c:1947
 msgid "AC-4 audio"
 msgstr ""
 
-#: src/profile.c:1928
+#: src/profile.c:1943
 msgid "AC3 audio"
 msgstr ""
 
@@ -477,19 +477,14 @@ msgstr ""
 msgid "ATSC-T multiplex"
 msgstr ""
 
-#: src/input/mpegts/mpegts_mux_dvb.c:225 src/input/mpegts/mpegts_mux_dvb.c:232
-#: src/input/mpegts/mpegts_mux_dvb.c:237 src/input/mpegts/mpegts_mux_dvb.c:244
-#: src/input/mpegts/mpegts_mux_dvb.c:249 src/input/mpegts/mpegts_mux_dvb.c:254
-#: src/input/mpegts/mpegts_mux_dvb.c:259 src/input/mpegts/mpegts_mux_dvb.c:327
-#: src/input/mpegts/mpegts_mux_dvb.c:332 src/input/mpegts/mpegts_mux_dvb.c:599
-#: src/input/mpegts/mpegts_mux_dvb.c:647 src/input/mpegts/mpegts_mux_dvb.c:652
+#: src/input/mpegts/mpegts_mux_dvb.c:225 src/input/mpegts/mpegts_mux_dvb.c:237
+#: src/input/mpegts/mpegts_mux_dvb.c:244 src/input/mpegts/mpegts_mux_dvb.c:249
+#: src/input/mpegts/mpegts_mux_dvb.c:254 src/input/mpegts/mpegts_mux_dvb.c:259
+#: src/input/mpegts/mpegts_mux_dvb.c:332 src/input/mpegts/mpegts_mux_dvb.c:652
 #: src/input/mpegts/mpegts_mux_dvb.c:761 src/input/mpegts/mpegts_mux_dvb.c:768
-#: src/input/mpegts/mpegts_mux_dvb.c:774 src/input/mpegts/mpegts_mux_dvb.c:778
-#: src/input/mpegts/mpegts_mux_dvb.c:797 src/input/mpegts/mpegts_mux_dvb.c:801
-#: src/input/mpegts/mpegts_mux_dvb.c:820 src/input/mpegts/mpegts_mux_dvb.c:824
-#: src/input/mpegts/mpegts_mux_dvb.c:875 src/input/mpegts/mpegts_mux_dvb.c:880
+#: src/input/mpegts/mpegts_mux_dvb.c:774 src/input/mpegts/mpegts_mux_dvb.c:797
+#: src/input/mpegts/mpegts_mux_dvb.c:820 src/input/mpegts/mpegts_mux_dvb.c:880
 #: src/input/mpegts/mpegts_mux_dvb.c:1032
-#: src/input/mpegts/mpegts_mux_dvb.c:1039
 #: src/input/mpegts/mpegts_mux_dvb.c:1044
 #: src/input/mpegts/mpegts_mux_dvb.c:1051
 #: src/input/mpegts/mpegts_mux_dvb.c:1056
@@ -559,7 +554,7 @@ msgstr ""
 msgid "Add channel numbers to the channel name list"
 msgstr ""
 
-#: src/main.c:952
+#: src/main.c:959
 msgid "Add file and line numbers to debug"
 msgstr ""
 
@@ -567,7 +562,7 @@ msgstr ""
 msgid "Add sources (like DVB-T string) to the channel name list"
 msgstr ""
 
-#: src/main.c:953
+#: src/main.c:960
 msgid "Add the thread ID to debug"
 msgstr ""
 
@@ -777,11 +772,11 @@ msgstr ""
 msgid "Alter programme description to include detailed information"
 msgstr ""
 
-#: src/main.c:893
+#: src/main.c:900
 msgid "Alternate PID path"
 msgstr ""
 
-#: src/main.c:888
+#: src/main.c:895
 msgid "Alternate configuration path"
 msgstr ""
 
@@ -830,7 +825,7 @@ msgstr ""
 msgid "Anonymize HTSP access"
 msgstr ""
 
-#: src/profile.c:1926 src/dvr/dvr_autorec.c:769 src/dvr/dvr_autorec.c:804
+#: src/profile.c:1941 src/dvr/dvr_autorec.c:769 src/dvr/dvr_autorec.c:804
 #: src/dvr/dvr_autorec.c:818 src/dvr/dvr_autorec.c:825
 #: src/dvr/dvr_autorec.c:1003 src/dvr/dvr_autorec.c:1072
 #: src/dvr/dvr_autorec.c:1275 src/dvr/dvr_autorec.c:1288
@@ -897,7 +892,7 @@ msgstr ""
 msgid "Audio channel layout."
 msgstr ""
 
-#: src/profile.c:2599
+#: src/profile.c:2614
 msgid "Audio codec profile"
 msgstr ""
 
@@ -905,11 +900,11 @@ msgstr ""
 msgid "Audio sample format."
 msgstr ""
 
-#: src/profile.c:1941
+#: src/profile.c:1956
 msgid "Audio stream"
 msgstr ""
 
-#: src/profile.c:1946
+#: src/profile.c:1961
 msgid "Audio type"
 msgstr ""
 
@@ -1002,7 +997,7 @@ msgstr ""
 msgid "Automatically map EPG source"
 msgstr ""
 
-#: src/wizard.c:1113
+#: src/wizard.c:1114
 msgid "Automatically map all available services to channels."
 msgstr ""
 
@@ -1509,7 +1504,7 @@ msgstr ""
 msgid "Channels / EPG - Bouquets"
 msgstr ""
 
-#: src/channels.c:1763
+#: src/channels.c:1764
 msgid "Channels / EPG - Channel Tags"
 msgstr ""
 
@@ -1565,7 +1560,7 @@ msgid ""
 "want Tvheadend to also map offline services."
 msgstr ""
 
-#: src/profile.c:423
+#: src/profile.c:424
 msgid "Check the descrambling status after this timeout."
 msgstr ""
 
@@ -1586,7 +1581,7 @@ msgstr ""
 msgid "Cinema"
 msgstr ""
 
-#: src/esfilter.c:595 src/profile.c:305 src/descrambler/caclient.c:285
+#: src/esfilter.c:595 src/profile.c:306 src/descrambler/caclient.c:285
 msgid "Class"
 msgstr ""
 
@@ -1662,11 +1657,11 @@ msgstr ""
 msgid "Comedy"
 msgstr ""
 
-#: src/profile.c:1607
+#: src/profile.c:1622
 msgid "Command line"
 msgstr ""
 
-#: src/profile.c:1608
+#: src/profile.c:1623
 msgid ""
 "Command line to run a task which accepts MPEG-TS stream on stdin and writes "
 "output to stdout in format specified by the selected mime type."
@@ -1683,9 +1678,9 @@ msgstr ""
 msgid "Command to move the dish with an external command."
 msgstr ""
 
-#: src/access.c:2008 src/access.c:2354 src/access.c:2493 src/channels.c:1842
+#: src/access.c:2008 src/access.c:2354 src/access.c:2493 src/channels.c:1843
 #: src/esfilter.c:703 src/esfilter.c:799 src/esfilter.c:895 src/esfilter.c:990
-#: src/esfilter.c:1098 src/esfilter.c:1181 src/profile.c:344 src/bouquet.c:1338
+#: src/esfilter.c:1098 src/esfilter.c:1181 src/profile.c:345 src/bouquet.c:1338
 #: src/epggrab/channel.c:885 src/dvr/dvr_db.c:5011 src/dvr/dvr_autorec.c:1487
 #: src/dvr/dvr_timerec.c:679 src/dvr/dvr_config.c:1157
 #: src/descrambler/caclient.c:319
@@ -1780,7 +1775,7 @@ msgstr ""
 msgid "Config-Users"
 msgstr ""
 
-#: src/tvhlog.c:103 src/profile.c:2100 src/epggrab/channel.c:752
+#: src/tvhlog.c:103 src/profile.c:2115 src/epggrab/channel.c:752
 msgid "Configuration"
 msgstr ""
 
@@ -1848,11 +1843,11 @@ msgstr ""
 msgid "Constellation"
 msgstr ""
 
-#: src/profile.c:2521
+#: src/profile.c:2536
 msgid "Container"
 msgstr ""
 
-#: src/profile.c:2522
+#: src/profile.c:2537
 msgid "Container to use for the transcoded stream."
 msgstr ""
 
@@ -1876,7 +1871,7 @@ msgstr ""
 msgid "Contest"
 msgstr ""
 
-#: src/profile.c:410
+#: src/profile.c:411
 msgid "Continue if descrambling fails"
 msgstr ""
 
@@ -1902,7 +1897,7 @@ msgstr ""
 msgid "Cooking"
 msgstr ""
 
-#: src/profile.c:2340
+#: src/profile.c:2355
 msgid "Copy"
 msgstr ""
 
@@ -1955,11 +1950,11 @@ msgstr ""
 msgid "Create a provider name tag."
 msgstr ""
 
-#: src/wizard.c:1131
+#: src/wizard.c:1132
 msgid "Create and associate a network tag to created channels."
 msgstr ""
 
-#: src/wizard.c:1122
+#: src/wizard.c:1123
 msgid "Create and associate a provider tag to created channels."
 msgstr ""
 
@@ -1991,7 +1986,7 @@ msgstr ""
 msgid "Create network name tags (set by provider)."
 msgstr ""
 
-#: src/wizard.c:1130
+#: src/wizard.c:1131
 msgid "Create network tags"
 msgstr ""
 
@@ -1999,7 +1994,7 @@ msgstr ""
 msgid "Create provider name tags"
 msgstr ""
 
-#: src/wizard.c:1121
+#: src/wizard.c:1122
 msgid "Create provider tags"
 msgstr ""
 
@@ -2111,7 +2106,7 @@ msgstr ""
 msgid "DBUS"
 msgstr ""
 
-#: src/main.c:903
+#: src/main.c:910
 msgid "DBus - use the session message bus instead of the system one"
 msgstr ""
 
@@ -2296,23 +2291,23 @@ msgstr ""
 msgid "DVR log retention"
 msgstr ""
 
-#: src/profile.c:261
+#: src/profile.c:262
 msgid "DVR override: high"
 msgstr ""
 
-#: src/profile.c:260
+#: src/profile.c:261
 msgid "DVR override: important"
 msgstr ""
 
-#: src/profile.c:263
+#: src/profile.c:264
 msgid "DVR override: low"
 msgstr ""
 
-#: src/profile.c:262
+#: src/profile.c:263
 msgid "DVR override: normal"
 msgstr ""
 
-#: src/profile.c:264
+#: src/profile.c:265
 msgid "DVR override: unimportant"
 msgstr ""
 
@@ -2376,11 +2371,11 @@ msgstr ""
 msgid "Data slice code."
 msgstr ""
 
-#: src/profile.c:365
+#: src/profile.c:366
 msgid "Data start timeout (sec) (0=default)"
 msgstr ""
 
-#: src/profile.c:353
+#: src/profile.c:354
 msgid "Data timeout (sec) (0=infinite)"
 msgstr ""
 
@@ -2414,7 +2409,7 @@ msgstr ""
 msgid "Debug libav log"
 msgstr ""
 
-#: src/main.c:941
+#: src/main.c:948
 msgid "Debug options"
 msgstr ""
 
@@ -2434,7 +2429,7 @@ msgstr ""
 msgid "Debugging"
 msgstr ""
 
-#: src/access.c:1487 src/access.c:1499 src/config.c:2059 src/profile.c:334
+#: src/access.c:1487 src/access.c:1499 src/config.c:2059 src/profile.c:335
 #: src/dvr/dvr_db.c:3736 src/transcoding/codec/profile_video_class.c:59
 msgid "Default"
 msgstr ""
@@ -2455,7 +2450,7 @@ msgstr ""
 msgid "Default login"
 msgstr ""
 
-#: src/profile.c:376
+#: src/profile.c:377
 msgid "Default priority"
 msgstr ""
 
@@ -2530,7 +2525,7 @@ msgstr ""
 msgid "Descrambler buffer (TS packets)"
 msgstr ""
 
-#: src/profile.c:422
+#: src/profile.c:423
 msgid "Descrambling timeout (ms)"
 msgstr ""
 
@@ -2613,7 +2608,7 @@ msgstr ""
 msgid "Disable"
 msgstr ""
 
-#: src/main.c:962
+#: src/main.c:969
 msgid "Disable DVB bouquets"
 msgstr ""
 
@@ -2621,11 +2616,11 @@ msgstr ""
 msgid "Disable RTP/AVP/TCP support"
 msgstr ""
 
-#: src/main.c:920
+#: src/main.c:927
 msgid "Disable SAT>IP client"
 msgstr ""
 
-#: src/main.c:918
+#: src/main.c:925
 msgid "Disable SAT>IP client (deprecated flag, use nosatipcli)"
 msgstr ""
 
@@ -2641,11 +2636,11 @@ msgstr ""
 msgid "Disable X_SATIPM3U tag"
 msgstr ""
 
-#: src/main.c:960
+#: src/main.c:967
 msgid "Disable all access control checks"
 msgstr ""
 
-#: src/main.c:943
+#: src/main.c:950
 msgid "Disable debug on stderr"
 msgstr ""
 
@@ -2653,11 +2648,11 @@ msgstr ""
 msgid "Disable device/firmware-specific workarounds"
 msgstr ""
 
-#: src/main.c:945
+#: src/main.c:952
 msgid "Disable syslog (all messages)"
 msgstr ""
 
-#: src/channels.c:399 src/profile.c:2339 src/epggrab/module/xmltv.c:1484
+#: src/channels.c:399 src/profile.c:2354 src/epggrab/module/xmltv.c:1484
 msgid "Disabled"
 msgstr ""
 
@@ -2714,13 +2709,13 @@ msgstr ""
 msgid "Documentary"
 msgstr ""
 
-#: src/profile.c:411
+#: src/profile.c:412
 msgid ""
 "Don't abort streaming when an encrypted stream can't be decrypted by a CA "
 "client that normally should be able to decrypt the stream."
 msgstr ""
 
-#: src/main.c:889
+#: src/main.c:896
 msgid "Don't backup configuration tree at upgrade"
 msgstr ""
 
@@ -2906,7 +2901,7 @@ msgstr ""
 msgid "Enable (auto)"
 msgstr ""
 
-#: src/main.c:901
+#: src/main.c:908
 msgid "Enable DBus"
 msgstr ""
 
@@ -2918,23 +2913,23 @@ msgstr ""
 msgid "Enable NTP driver"
 msgstr ""
 
-#: src/main.c:959
+#: src/main.c:966
 msgid "Enable coredumps for daemon"
 msgstr ""
 
-#: src/main.c:942
+#: src/main.c:949
 msgid "Enable debug on stderr"
 msgstr ""
 
-#: src/main.c:947
+#: src/main.c:954
 msgid "Enable debug subsystems"
 msgstr ""
 
-#: src/main.c:946
+#: src/main.c:953
 msgid "Enable debug to file"
 msgstr ""
 
-#: src/main.c:944
+#: src/main.c:951
 msgid "Enable debug to syslog"
 msgstr ""
 
@@ -3025,7 +3020,7 @@ msgid ""
 "bypass deinterlacing for improved efficiency and quality."
 msgstr ""
 
-#: src/main.c:949
+#: src/main.c:956
 msgid "Enable trace subsystems"
 msgstr ""
 
@@ -3040,7 +3035,7 @@ msgid ""
 "NOTE: After save, Tvheadend restart is required!"
 msgstr ""
 
-#: src/main.c:957
+#: src/main.c:964
 msgid "Enable web UI debug (non-minified JS)"
 msgstr ""
 
@@ -3120,7 +3115,7 @@ msgstr ""
 msgid "Enable/disable power save mode (if supported by the device)."
 msgstr ""
 
-#: src/profile.c:325 src/dvr/dvr_config.c:966
+#: src/profile.c:326 src/dvr/dvr_config.c:966
 msgid "Enable/disable profile."
 msgstr ""
 
@@ -3177,7 +3172,7 @@ msgstr ""
 msgid "Enable/disable the rating label."
 msgstr ""
 
-#: src/channels.c:1775
+#: src/channels.c:1776
 msgid "Enable/disable the tag."
 msgstr ""
 
@@ -3186,8 +3181,8 @@ msgid "Enable/disable tuner/adapter."
 msgstr ""
 
 #: src/access.c:1752 src/access.c:2299 src/access.c:2476 src/channels.c:400
-#: src/channels.c:421 src/channels.c:1774 src/service.c:172 src/imagecache.c:90
-#: src/esfilter.c:609 src/profile.c:324 src/bouquet.c:1212
+#: src/channels.c:421 src/channels.c:1775 src/service.c:172 src/imagecache.c:90
+#: src/esfilter.c:609 src/profile.c:325 src/bouquet.c:1212
 #: src/ratinglabels.c:637 src/epggrab/module.c:171 src/epggrab/channel.c:761
 #: src/dvr/dvr_db.c:4496 src/dvr/dvr_autorec.c:1144 src/dvr/dvr_timerec.c:536
 #: src/dvr/dvr_config.c:965 src/descrambler/caclient.c:302
@@ -3477,7 +3472,7 @@ msgstr ""
 msgid "FHD TV"
 msgstr ""
 
-#: src/profile.c:276
+#: src/profile.c:277
 msgid "FHD: full high definition"
 msgstr ""
 
@@ -3605,7 +3600,7 @@ msgstr ""
 msgid "Fine arts"
 msgstr ""
 
-#: src/wizard.c:1195 src/dvr/dvr_db.c:662
+#: src/wizard.c:1196 src/dvr/dvr_db.c:662
 msgid "Finished"
 msgstr ""
 
@@ -3710,11 +3705,11 @@ msgstr ""
 msgid "Force pilot for DVB-S2"
 msgstr ""
 
-#: src/profile.c:390
+#: src/profile.c:391
 msgid "Force priority"
 msgstr ""
 
-#: src/profile.c:391
+#: src/profile.c:392
 msgid "Force profile to use this priority."
 msgstr ""
 
@@ -3771,7 +3766,7 @@ msgstr ""
 msgid "Forever"
 msgstr ""
 
-#: src/main.c:890
+#: src/main.c:897
 msgid "Fork and run as daemon"
 msgstr ""
 
@@ -3787,11 +3782,11 @@ msgstr ""
 msgid "Format string/Pathname specification"
 msgstr ""
 
-#: src/wizard.c:1028
+#: src/wizard.c:1029
 msgid "Found muxes"
 msgstr ""
 
-#: src/wizard.c:1037
+#: src/wizard.c:1038
 msgid "Found services"
 msgstr ""
 
@@ -3818,7 +3813,7 @@ msgstr ""
 msgid "Free-form field, enter whatever you like here."
 msgstr ""
 
-#: src/access.c:2009 src/access.c:2355 src/access.c:2492 src/channels.c:1843
+#: src/access.c:2009 src/access.c:2355 src/access.c:2492 src/channels.c:1844
 #: src/dvr/dvr_db.c:5012 src/dvr/dvr_autorec.c:1488 src/dvr/dvr_timerec.c:680
 msgid "Free-form text field, enter whatever you like here."
 msgstr ""
@@ -3827,7 +3822,7 @@ msgstr ""
 msgid "Free-form text field, enter whatever you like."
 msgstr ""
 
-#: src/profile.c:345
+#: src/profile.c:346
 msgid "Free-form text field. You can enter whatever you like here."
 msgstr ""
 
@@ -3882,7 +3877,7 @@ msgstr ""
 msgid "Full mux RX mode supported"
 msgstr ""
 
-#: src/channels.c:1816
+#: src/channels.c:1817
 msgid ""
 "Full path to an icon used to depict the tag. This can be a TV network "
 "logotype, etc."
@@ -3917,12 +3912,12 @@ msgstr ""
 msgid "Gardening"
 msgstr ""
 
-#: src/main.c:974
+#: src/main.c:981
 msgid "Gather timing statistics for the code"
 msgstr ""
 
-#: src/tvhlog.c:835 src/epggrab.c:351 src/profile.c:296 src/profile.c:1344
-#: src/profile.c:1590 src/profile.c:1825 src/profile.c:2502
+#: src/tvhlog.c:835 src/epggrab.c:351 src/profile.c:297 src/profile.c:1359
+#: src/profile.c:1605 src/profile.c:1840 src/profile.c:2517
 #: src/satip/server.c:653 src/epggrab/module/xmltv.c:1497
 #: src/epggrab/module/xmltv.c:1599 src/dvr/dvr_config.c:924
 #: src/descrambler/caclient.c:276 src/transcoding/codec/profile_class.c:232
@@ -3934,7 +3929,7 @@ msgstr ""
 msgid "Generic"
 msgstr ""
 
-#: src/main.c:883
+#: src/main.c:890
 msgid "Generic options"
 msgstr ""
 
@@ -3978,7 +3973,7 @@ msgstr ""
 msgid "HD TV"
 msgstr ""
 
-#: src/profile.c:275
+#: src/profile.c:276
 msgid "HD: high definition"
 msgstr ""
 
@@ -4038,7 +4033,7 @@ msgstr ""
 msgid "HTSP Server"
 msgstr ""
 
-#: src/profile.c:1206
+#: src/profile.c:1221
 msgid "HTSP Stream Profile"
 msgstr ""
 
@@ -4110,7 +4105,7 @@ msgstr ""
 msgid "Hierarchy"
 msgstr ""
 
-#: src/profile.c:256 src/dvr/dvr_db.c:3738
+#: src/profile.c:257 src/dvr/dvr_db.c:3738
 msgid "High"
 msgstr ""
 
@@ -4178,7 +4173,7 @@ msgstr ""
 msgid "ID"
 msgstr ""
 
-#: src/wizard.c:819
+#: src/wizard.c:820
 msgid "ID of the network."
 msgstr ""
 
@@ -4293,11 +4288,11 @@ msgstr ""
 msgid "Icon"
 msgstr ""
 
-#: src/channels.c:1815
+#: src/channels.c:1816
 msgid "Icon (full URL)"
 msgstr ""
 
-#: src/channels.c:473 src/channels.c:1825 src/ratinglabels.c:697
+#: src/channels.c:473 src/channels.c:1826 src/ratinglabels.c:697
 #: src/input/mpegts/iptv/iptv_mux.c:222
 msgid "Icon URL"
 msgstr ""
@@ -4310,7 +4305,7 @@ msgstr ""
 msgid "Icon base URL."
 msgstr ""
 
-#: src/channels.c:1833
+#: src/channels.c:1834
 msgid "Icon has title"
 msgstr ""
 
@@ -4383,13 +4378,13 @@ msgid ""
 "possible)."
 msgstr ""
 
-#: src/profile.c:377
+#: src/profile.c:378
 msgid ""
 "If no specific priority was requested. This gives certain users a higher "
 "priority by assigning a streaming profile with a higher priority."
 msgstr ""
 
-#: src/main.c:894
+#: src/main.c:901
 msgid ""
 "If no user account exists then create one with\n"
 "no username and no password. Use with care as\n"
@@ -4398,7 +4393,7 @@ msgid ""
 "the access control from within the Tvheadend web interface."
 msgstr ""
 
-#: src/channels.c:1834
+#: src/channels.c:1835
 msgid ""
 "If set, presentation of the tag icon will not superimpose the tag name on "
 "top of the icon."
@@ -4411,7 +4406,7 @@ msgid ""
 "completely after a frequency/parameter change."
 msgstr ""
 
-#: src/profile.c:433
+#: src/profile.c:434
 msgid ""
 "If something fails, try to switch to a different service on another network. "
 "Do not try to iterate through all inputs/tuners which are capable to receive "
@@ -4490,11 +4485,11 @@ msgstr ""
 msgid "Immediately"
 msgstr ""
 
-#: src/main.c:958
+#: src/main.c:965
 msgid "Immediately abort"
 msgstr ""
 
-#: src/profile.c:255 src/dvr/dvr_db.c:3737
+#: src/profile.c:256 src/dvr/dvr_db.c:3737
 msgid "Important"
 msgstr ""
 
@@ -4594,7 +4589,7 @@ msgstr ""
 msgid "Interface"
 msgstr ""
 
-#: src/channels.c:1797 src/epggrab/module.c:55
+#: src/channels.c:1798 src/epggrab/module.c:55
 msgid "Internal"
 msgstr ""
 
@@ -4622,7 +4617,7 @@ msgstr ""
 msgid "Invalid EPG object request"
 msgstr ""
 
-#: src/main.c:1046
+#: src/main.c:1053
 #, c-format
 msgid "Invalid adapter number '%s'\n"
 msgstr ""
@@ -4707,15 +4702,15 @@ msgstr ""
 msgid "Keywords: "
 msgstr ""
 
-#: src/profile.c:1626 src/input/mpegts/iptv/iptv_mux.c:236
+#: src/profile.c:1641 src/input/mpegts/iptv/iptv_mux.c:236
 msgid "Kill signal (pipe)"
 msgstr ""
 
-#: src/profile.c:1627
+#: src/profile.c:1642
 msgid "Kill signal to send to the spawn."
 msgstr ""
 
-#: src/profile.c:1637 src/input/mpegts/iptv/iptv_mux.c:244
+#: src/profile.c:1652 src/input/mpegts/iptv/iptv_mux.c:244
 msgid "Kill timeout (pipe/secs)"
 msgstr ""
 
@@ -4934,7 +4929,7 @@ msgstr ""
 msgid "List of allowed IPv4 or IPv6 hosts or networks (comma-separated)."
 msgstr ""
 
-#: src/main.c:951
+#: src/main.c:958
 msgid "List subsystems"
 msgstr ""
 
@@ -4942,7 +4937,7 @@ msgstr ""
 msgid "Listen / Connect port"
 msgstr ""
 
-#: src/main.c:926
+#: src/main.c:933
 msgid "Listen on IPv6"
 msgstr ""
 
@@ -5055,7 +5050,7 @@ msgstr ""
 msgid "Logout"
 msgstr ""
 
-#: src/profile.c:258 src/dvr/dvr_db.c:3740
+#: src/profile.c:259 src/dvr/dvr_db.c:3740
 msgid "Low"
 msgstr ""
 
@@ -5079,19 +5074,19 @@ msgstr ""
 msgid "MP2"
 msgstr ""
 
-#: src/profile.c:1930
+#: src/profile.c:1945
 msgid "MP4 audio"
 msgstr ""
 
-#: src/profile.c:2187 src/profile.c:2314
+#: src/profile.c:2202 src/profile.c:2329
 msgid "MP4/av-lib"
 msgstr ""
 
-#: src/profile.c:1927
+#: src/profile.c:1942
 msgid "MPEG-2 audio"
 msgstr ""
 
-#: src/profile.c:2310
+#: src/profile.c:2325
 msgid "MPEG-PS (DVD)/av-lib"
 msgstr ""
 
@@ -5111,11 +5106,11 @@ msgstr ""
 msgid "MPEG-TS Parser"
 msgstr ""
 
-#: src/profile.c:1341
+#: src/profile.c:1356
 msgid "MPEG-TS Pass-thru/built-in"
 msgstr ""
 
-#: src/profile.c:1587
+#: src/profile.c:1602
 msgid "MPEG-TS Spawn/built-in"
 msgstr ""
 
@@ -5131,7 +5126,7 @@ msgstr ""
 msgid "MPEG-TS raw service"
 msgstr ""
 
-#: src/profile.c:2031 src/profile.c:2309
+#: src/profile.c:2046 src/profile.c:2324
 msgid "MPEG-TS/av-lib"
 msgstr ""
 
@@ -5213,7 +5208,7 @@ msgstr ""
 msgid "Manufacturer's product name."
 msgstr ""
 
-#: src/wizard.c:1112
+#: src/wizard.c:1113
 msgid "Map all services"
 msgstr ""
 
@@ -5248,15 +5243,15 @@ msgstr ""
 msgid "Master tuner"
 msgstr ""
 
-#: src/profile.c:2312
+#: src/profile.c:2327
 msgid "Matroska (mkv)/av-lib"
 msgstr ""
 
-#: src/profile.c:1822 src/profile.c:2307
+#: src/profile.c:1837 src/profile.c:2322
 msgid "Matroska (mkv)/built-in"
 msgstr ""
 
-#: src/profile.c:1829
+#: src/profile.c:1844
 msgid "Matroska Specific Settings"
 msgstr ""
 
@@ -5264,11 +5259,11 @@ msgstr ""
 msgid "Matroska muxer"
 msgstr ""
 
-#: src/profile.c:2104
+#: src/profile.c:2119
 msgid "Matroska specific"
 msgstr ""
 
-#: src/profile.c:2097
+#: src/profile.c:2112
 msgid "Matroska/av-lib"
 msgstr ""
 
@@ -5390,11 +5385,11 @@ msgstr ""
 msgid "Method not found"
 msgstr ""
 
-#: src/profile.c:1618
+#: src/profile.c:1633
 msgid "Mime type"
 msgstr ""
 
-#: src/profile.c:1619
+#: src/profile.c:1634
 msgid "Mime type string (for example 'video/mp2t')."
 msgstr ""
 
@@ -5471,7 +5466,7 @@ msgstr ""
 msgid "Mon"
 msgstr ""
 
-#: src/main.c:955
+#: src/main.c:962
 msgid "More verbose libav log"
 msgstr ""
 
@@ -5579,7 +5574,7 @@ msgstr ""
 msgid "NVENC"
 msgstr ""
 
-#: src/channels.c:439 src/channels.c:1790 src/bouquet.c:1268
+#: src/channels.c:439 src/channels.c:1791 src/bouquet.c:1268
 #: src/memoryinfo.c:46 src/epggrab/module.c:152 src/epggrab/channel.c:674
 #: src/epggrab/channel.c:816 src/dvr/dvr_autorec.c:1152
 #: src/dvr/dvr_timerec.c:544 src/input/mpegts/mpegts_input.c:272
@@ -5624,7 +5619,7 @@ msgid ""
 "channels EPG info."
 msgstr ""
 
-#: src/wizard.c:811 src/input/mpegts/mpegts_network.c:200
+#: src/wizard.c:812 src/input/mpegts/mpegts_network.c:200
 msgid "Name of the network."
 msgstr ""
 
@@ -5632,7 +5627,7 @@ msgstr ""
 msgid "Name of the profile."
 msgstr ""
 
-#: src/channels.c:1791
+#: src/channels.c:1792
 msgid "Name of the tag."
 msgstr ""
 
@@ -5660,7 +5655,7 @@ msgstr ""
 msgid "Nature"
 msgstr ""
 
-#: src/wizard.c:786 src/wizard.c:810 src/input/mpegts/mpegts_mux.c:569
+#: src/wizard.c:787 src/wizard.c:811 src/input/mpegts/mpegts_mux.c:569
 #: src/input/mpegts/mpegts_service.c:110
 #: src/input/mpegts/tvhdhomerun/tvhdhomerun.c:206
 msgid "Network"
@@ -5835,7 +5830,7 @@ msgstr ""
 msgid "No access"
 msgstr ""
 
-#: src/main.c:1059
+#: src/main.c:1066
 msgid "No adapters specified!\n"
 msgstr ""
 
@@ -5891,7 +5886,7 @@ msgstr ""
 msgid "Node subsystem"
 msgstr ""
 
-#: src/tvhlog.c:82 src/service.c:147 src/profile.c:273
+#: src/tvhlog.c:82 src/service.c:147 src/profile.c:274
 #: src/input/mpegts/mpegts_service.c:89
 #: src/input/mpegts/linuxdvb/linuxdvb_switch.c:263
 #: src/input/mpegts/linuxdvb/linuxdvb_rotor.c:600
@@ -5899,7 +5894,7 @@ msgstr ""
 msgid "None"
 msgstr ""
 
-#: src/profile.c:257 src/dvr/dvr_db.c:3739
+#: src/profile.c:258 src/dvr/dvr_db.c:3739
 #: src/input/mpegts/linuxdvb/linuxdvb_satconf.c:233
 msgid "Normal"
 msgstr ""
@@ -5922,7 +5917,7 @@ msgstr ""
 msgid "Not linked"
 msgstr ""
 
-#: src/channels.c:398 src/profile.c:2306
+#: src/channels.c:398 src/profile.c:2321
 msgid "Not set"
 msgstr ""
 
@@ -5975,7 +5970,7 @@ msgid ""
 "the programme is actually watched."
 msgstr ""
 
-#: src/wizard.c:1029
+#: src/wizard.c:1030
 msgid "Number of muxes found."
 msgstr ""
 
@@ -5999,7 +5994,7 @@ msgstr ""
 msgid "Number of seconds to wait before timing out."
 msgstr ""
 
-#: src/profile.c:1638
+#: src/profile.c:1653
 msgid "Number of seconds to wait for spawn to die."
 msgstr ""
 
@@ -6011,7 +6006,7 @@ msgstr ""
 msgid "Number of times this recording was played."
 msgstr ""
 
-#: src/main.c:970
+#: src/main.c:977
 msgid "Number of tsfile tuners"
 msgstr ""
 
@@ -6123,7 +6118,7 @@ msgstr ""
 msgid "Only admin can watch the realtime log."
 msgstr ""
 
-#: src/channels.c:1806
+#: src/channels.c:1807
 msgid ""
 "Only allow users with this tag (or those with no tags at all) set in access "
 "configuration to use the tag."
@@ -6144,7 +6139,7 @@ msgid ""
 "stop excessive oscillations on the system clock."
 msgstr ""
 
-#: src/main.c:907
+#: src/main.c:914
 msgid "Only use specified DVB adapters (comma-separated, -1 = none)"
 msgstr ""
 
@@ -6483,7 +6478,7 @@ msgstr ""
 msgid "Physiology"
 msgstr ""
 
-#: src/profile.c:1947
+#: src/profile.c:1962
 msgid "Pick the stream with given audio type only."
 msgstr ""
 
@@ -6594,7 +6589,7 @@ msgstr ""
 msgid "Power up time (ms) (10-500)"
 msgstr ""
 
-#: src/wizard.c:800 src/input/mpegts/mpegts_network_dvb.c:247
+#: src/wizard.c:801 src/input/mpegts/mpegts_network_dvb.c:247
 #: src/input/mpegts/mpegts_network_dvb.c:270
 #: src/input/mpegts/mpegts_network_dvb.c:293
 #: src/input/mpegts/mpegts_network_dvb.c:326
@@ -6619,7 +6614,7 @@ msgstr ""
 msgid "Pre-school children's programs"
 msgstr ""
 
-#: src/wizard.c:965
+#: src/wizard.c:966
 msgid "Predefined Muxes"
 msgstr ""
 
@@ -6637,7 +6632,7 @@ msgstr ""
 msgid "Preferred audio language."
 msgstr ""
 
-#: src/profile.c:445
+#: src/profile.c:446
 msgid "Preferred service video type"
 msgstr ""
 
@@ -6704,7 +6699,7 @@ msgid ""
 "the assigned DVR configuration."
 msgstr ""
 
-#: src/channels.c:1805
+#: src/channels.c:1806
 msgid "Private"
 msgstr ""
 
@@ -6728,7 +6723,7 @@ msgstr ""
 msgid "Profile description."
 msgstr ""
 
-#: src/profile.c:314
+#: src/profile.c:315
 msgid "Profile name"
 msgstr ""
 
@@ -6760,7 +6755,7 @@ msgstr ""
 msgid "Program unique ID (from grabber), such as MV101010101.0000"
 msgstr ""
 
-#: src/wizard.c:779
+#: src/wizard.c:780
 msgid "Progress"
 msgstr ""
 
@@ -6795,6 +6790,14 @@ msgstr ""
 
 #: src/tvhlog.c:174
 msgid "PyEPG Import"
+msgstr ""
+
+#: src/input/mpegts/mpegts_mux_dvb.c:232 src/input/mpegts/mpegts_mux_dvb.c:327
+#: src/input/mpegts/mpegts_mux_dvb.c:599 src/input/mpegts/mpegts_mux_dvb.c:647
+#: src/input/mpegts/mpegts_mux_dvb.c:778 src/input/mpegts/mpegts_mux_dvb.c:801
+#: src/input/mpegts/mpegts_mux_dvb.c:824 src/input/mpegts/mpegts_mux_dvb.c:875
+#: src/input/mpegts/mpegts_mux_dvb.c:1039
+msgid "QAM/AUTO"
 msgstr ""
 
 #: src/transcoding/codec/codecs/libs/libvpx.c:106
@@ -6865,6 +6868,14 @@ msgstr ""
 msgid "Radio"
 msgstr ""
 
+#: src/profile.c:460
+msgid "Randomize service selection"
+msgstr ""
+
+#: src/profile.c:461
+msgid "Randomizes the service used when tuning a channel."
+msgstr ""
+
 #: src/dvr/dvr_db.c:5115
 msgid "Rating Authority"
 msgstr ""
@@ -6909,7 +6920,7 @@ msgstr ""
 msgid "Rating label to be displayed."
 msgstr ""
 
-#: src/profile.c:2311
+#: src/profile.c:2326
 msgid "Raw Audio Stream"
 msgstr ""
 
@@ -6980,7 +6991,7 @@ msgstr ""
 msgid "Reject exact match"
 msgstr ""
 
-#: src/channels.c:1826
+#: src/channels.c:1827
 msgid "Relative path to the imagecache copy of the icon."
 msgstr ""
 
@@ -7014,11 +7025,11 @@ msgid ""
 "RTSP session)."
 msgstr ""
 
-#: src/profile.c:1849
+#: src/profile.c:1864
 msgid "Reorder DVB subtitle packets."
 msgstr ""
 
-#: src/profile.c:1848
+#: src/profile.c:1863
 msgid "Reorder DVBSUB"
 msgstr ""
 
@@ -7072,11 +7083,11 @@ msgstr ""
 msgid "Restart"
 msgstr ""
 
-#: src/profile.c:399
+#: src/profile.c:400
 msgid "Restart on error"
 msgstr ""
 
-#: src/profile.c:400
+#: src/profile.c:401
 msgid ""
 "Restart streaming on error. This is useful for DVR so a recording isn't "
 "aborted if an error occurs."
@@ -7111,49 +7122,49 @@ msgstr ""
 msgid "Reuse the EPG from another channel."
 msgstr ""
 
-#: src/profile.c:1429 src/profile.c:1719
+#: src/profile.c:1444 src/profile.c:1734
 msgid "Rewrite EIT"
 msgstr ""
 
-#: src/profile.c:1430 src/profile.c:1720
+#: src/profile.c:1445 src/profile.c:1735
 msgid ""
 "Rewrite EIT (Event Information Table) packets to only include information "
 "about the currently-streamed service. Rewrite can be unset only if 'Rewrite "
 "Service ID' is set to zero."
 msgstr ""
 
-#: src/profile.c:1348 src/profile.c:1598 src/profile.c:2511
+#: src/profile.c:1363 src/profile.c:1613 src/profile.c:2526
 msgid "Rewrite MPEG-TS SI Table(s) Settings"
 msgstr ""
 
-#: src/profile.c:1414 src/profile.c:1704 src/profile.c:2561
+#: src/profile.c:1429 src/profile.c:1719 src/profile.c:2576
 msgid "Rewrite NIT"
 msgstr ""
 
-#: src/profile.c:1415 src/profile.c:1705 src/profile.c:2562
+#: src/profile.c:1430 src/profile.c:1720 src/profile.c:2577
 msgid ""
 "Rewrite NIT (Network Information Table) packets to only include information "
 "about the currently-streamed service. Rewrite can be unset only if 'Rewrite "
 "Service ID' is set to zero."
 msgstr ""
 
-#: src/profile.c:1384 src/profile.c:1674
+#: src/profile.c:1399 src/profile.c:1689
 msgid "Rewrite PAT"
 msgstr ""
 
-#: src/profile.c:1385 src/profile.c:1675
+#: src/profile.c:1400 src/profile.c:1690
 msgid ""
 "Rewrite PAT (Program Association Table) packets to only include information "
 "about the currently-streamed service. Rewrite can be unset only if 'Rewrite "
 "Service ID' is set to zero."
 msgstr ""
 
-#: src/profile.c:1369 src/profile.c:1659 src/profile.c:2546
+#: src/profile.c:1384 src/profile.c:1674 src/profile.c:2561
 #: src/satip/server.c:926
 msgid "Rewrite PMT"
 msgstr ""
 
-#: src/profile.c:1370 src/profile.c:1660 src/profile.c:2547
+#: src/profile.c:1385 src/profile.c:1675 src/profile.c:2562
 msgid ""
 "Rewrite PMT (Program Map Table) packets to only include information about "
 "the currently-streamed service. Rewrite can be unset only if 'Rewrite "
@@ -7166,28 +7177,28 @@ msgid ""
 "the currently streamed service."
 msgstr ""
 
-#: src/profile.c:1399 src/profile.c:1689
+#: src/profile.c:1414 src/profile.c:1704
 msgid "Rewrite SDT"
 msgstr ""
 
-#: src/profile.c:1400 src/profile.c:1690
+#: src/profile.c:1415 src/profile.c:1705
 msgid ""
 "Rewrite SDT (Service Description Table) packets to only include information "
 "about the currently-streamed service. Rewrite can be unset only if 'Rewrite "
 "Service ID' is set to zero."
 msgstr ""
 
-#: src/profile.c:1357 src/profile.c:1647 src/profile.c:2533
+#: src/profile.c:1372 src/profile.c:1662 src/profile.c:2548
 msgid "Rewrite Service ID"
 msgstr ""
 
-#: src/profile.c:1358 src/profile.c:1648
+#: src/profile.c:1373 src/profile.c:1663
 msgid ""
 "Rewrite service identifier (SID) using the specified value (usually 1). Zero "
 "means no rewrite."
 msgstr ""
 
-#: src/profile.c:2534
+#: src/profile.c:2549
 msgid ""
 "Rewrite service identifier (SID) using the specified value (usually 1). Zero "
 "means no rewrite; preserving MPEG-TS original network and transport stream "
@@ -7223,11 +7234,11 @@ msgstr ""
 msgid "Rotor: %s"
 msgstr ""
 
-#: src/main.c:892
+#: src/main.c:899
 msgid "Run as group"
 msgstr ""
 
-#: src/main.c:891
+#: src/main.c:898
 msgid "Run as user"
 msgstr ""
 
@@ -7267,7 +7278,7 @@ msgstr ""
 msgid "SAT>IP ISDB-T Frontend"
 msgstr ""
 
-#: src/main.c:913
+#: src/main.c:920
 msgid ""
 "SAT>IP RTSP port number for server\n"
 "(default: -1 = disable, 0 = webconfig, standard port is 554)"
@@ -7307,7 +7318,7 @@ msgstr ""
 msgid "SD TV"
 msgstr ""
 
-#: src/profile.c:274
+#: src/profile.c:275
 msgid "SD: standard definition"
 msgstr ""
 
@@ -7477,7 +7488,7 @@ msgstr ""
 msgid "Scanfile"
 msgstr ""
 
-#: src/wizard.c:1050
+#: src/wizard.c:1051
 msgid "Scanning"
 msgstr ""
 
@@ -7594,7 +7605,7 @@ msgstr ""
 msgid "Select an available network type for this tuner."
 msgstr ""
 
-#: src/profile.c:2600
+#: src/profile.c:2615
 msgid "Select audio codec profile to use for transcoding."
 msgstr ""
 
@@ -7619,7 +7630,7 @@ msgid ""
 "Select scheme to generate the picon names (standard, force service type to 1)"
 msgstr ""
 
-#: src/profile.c:2622
+#: src/profile.c:2637
 msgid "Select subtitle codec profile to use for transcoding."
 msgstr ""
 
@@ -7685,7 +7696,7 @@ msgstr ""
 msgid "Select type of broadcast."
 msgstr ""
 
-#: src/profile.c:2578
+#: src/profile.c:2593
 msgid "Select video codec profile to use for transcoding."
 msgstr ""
 
@@ -7776,7 +7787,7 @@ msgstr ""
 msgid "Server UUID"
 msgstr ""
 
-#: src/main.c:925
+#: src/main.c:932
 msgid "Server connectivity"
 msgstr ""
 
@@ -7805,7 +7816,7 @@ msgstr ""
 msgid "Service Mapper"
 msgstr ""
 
-#: src/wizard.c:1142
+#: src/wizard.c:1143
 msgid "Service Mapping"
 msgstr ""
 
@@ -7813,7 +7824,7 @@ msgstr ""
 msgid "Service Mapping (Map services to channels)"
 msgstr ""
 
-#: src/main.c:887
+#: src/main.c:894
 msgid "Service configuration"
 msgstr ""
 
@@ -7871,7 +7882,7 @@ msgstr ""
 msgid "Services seen"
 msgstr ""
 
-#: src/profile.c:335
+#: src/profile.c:336
 msgid "Set as default profile."
 msgstr ""
 
@@ -7957,11 +7968,11 @@ msgid ""
 "zero."
 msgstr ""
 
-#: src/main.c:884
+#: src/main.c:891
 msgid "Show this page"
 msgstr ""
 
-#: src/main.c:885
+#: src/main.c:892
 msgid "Show version information"
 msgstr ""
 
@@ -8121,11 +8132,11 @@ msgid ""
 "and supply both to clients."
 msgstr ""
 
-#: src/channels.c:1782
+#: src/channels.c:1783
 msgid "Sort index"
 msgstr ""
 
-#: src/channels.c:1783
+#: src/channels.c:1784
 msgid "Sort index."
 msgstr ""
 
@@ -8133,7 +8144,7 @@ msgstr ""
 msgid "Source"
 msgstr ""
 
-#: src/profile.c:2610
+#: src/profile.c:2625
 msgid "Source audio codec"
 msgstr ""
 
@@ -8149,11 +8160,11 @@ msgstr ""
 msgid "Source reconfigured"
 msgstr ""
 
-#: src/profile.c:2632
+#: src/profile.c:2647
 msgid "Source subtitle codec"
 msgstr ""
 
-#: src/profile.c:2588
+#: src/profile.c:2603
 msgid "Source video codec"
 msgstr ""
 
@@ -8169,7 +8180,7 @@ msgstr ""
 msgid "Spawn"
 msgstr ""
 
-#: src/profile.c:1594
+#: src/profile.c:1609
 msgid "Spawn Settings"
 msgstr ""
 
@@ -8184,31 +8195,31 @@ msgid ""
 "stream is paused."
 msgstr ""
 
-#: src/main.c:936
+#: src/main.c:943
 msgid "Specify User-Agent header for the http client"
 msgstr ""
 
-#: src/main.c:932
+#: src/main.c:939
 msgid "Specify alternative htsp port"
 msgstr ""
 
-#: src/main.c:928
+#: src/main.c:935
 msgid "Specify alternative http port"
 msgstr ""
 
-#: src/main.c:930
+#: src/main.c:937
 msgid "Specify alternative http webroot"
 msgstr ""
 
-#: src/main.c:927
+#: src/main.c:934
 msgid "Specify bind address"
 msgstr ""
 
-#: src/main.c:911
+#: src/main.c:918
 msgid "Specify bind address for SAT>IP server"
 msgstr ""
 
-#: src/main.c:934
+#: src/main.c:941
 msgid "Specify extra htsp port"
 msgstr ""
 
@@ -8355,7 +8366,7 @@ msgstr ""
 msgid "Stream - Codec Profiles"
 msgstr ""
 
-#: src/profile.c:287
+#: src/profile.c:288
 msgid "Stream - Stream Profiles"
 msgstr ""
 
@@ -8388,11 +8399,11 @@ msgid "Stream ID"
 msgstr ""
 
 #: src/esfilter.c:658 src/esfilter.c:754 src/esfilter.c:850 src/esfilter.c:945
-#: src/esfilter.c:1053 src/profile.c:1956
+#: src/esfilter.c:1053 src/profile.c:1971
 msgid "Stream index"
 msgstr ""
 
-#: src/profile.c:1957
+#: src/profile.c:1972
 msgid "Stream index (starts with zero)."
 msgstr ""
 
@@ -8459,7 +8470,7 @@ msgid ""
 "supported depending on your OS and filesystem."
 msgstr ""
 
-#: src/main.c:964
+#: src/main.c:971
 msgid "Subscribe to a service permanently"
 msgstr ""
 
@@ -8496,7 +8507,7 @@ msgstr ""
 msgid "Subtitle and summary"
 msgstr ""
 
-#: src/profile.c:2621
+#: src/profile.c:2636
 msgid "Subtitle codec profile"
 msgstr ""
 
@@ -8543,7 +8554,7 @@ msgid ""
 "must also be enabled."
 msgstr ""
 
-#: src/profile.c:432
+#: src/profile.c:433
 msgid "Switch to another service"
 msgstr ""
 
@@ -8737,7 +8748,7 @@ msgstr ""
 msgid "Testing"
 msgstr ""
 
-#: src/main.c:969
+#: src/main.c:976
 msgid "Testing options"
 msgstr ""
 
@@ -9353,7 +9364,7 @@ msgid ""
 "The name given to/of the channel (This is how it'll appear in your EPG.)"
 msgstr ""
 
-#: src/profile.c:315
+#: src/profile.c:316
 msgid "The name of the profile."
 msgstr ""
 
@@ -9462,11 +9473,11 @@ msgid ""
 "should expire."
 msgstr ""
 
-#: src/profile.c:366
+#: src/profile.c:367
 msgid "The number of seconds to wait for data when stream is starting."
 msgstr ""
 
-#: src/profile.c:354
+#: src/profile.c:355
 msgid ""
 "The number of seconds to wait for data. It handles the situations where no "
 "data are received at start or the input stream is stalled."
@@ -9581,7 +9592,7 @@ msgid ""
 "touched."
 msgstr ""
 
-#: src/profile.c:446
+#: src/profile.c:447
 msgid ""
 "The selected video type should be preferred when multiple services are "
 "available for a channel."
@@ -9805,7 +9816,7 @@ msgstr ""
 msgid "Thread"
 msgstr ""
 
-#: src/main.c:976
+#: src/main.c:983
 msgid "Thread debugging"
 msgstr ""
 
@@ -9982,7 +9993,7 @@ msgstr ""
 msgid "Total number of services found on this network."
 msgstr ""
 
-#: src/wizard.c:1038
+#: src/wizard.c:1039
 msgid "Total number of services found."
 msgstr ""
 
@@ -10014,23 +10025,23 @@ msgstr ""
 msgid "Transcode"
 msgstr ""
 
-#: src/profile.c:2611
+#: src/profile.c:2626
 msgid "Transcode audio only for selected codecs."
 msgstr ""
 
-#: src/profile.c:2633
+#: src/profile.c:2648
 msgid "Transcode subtitle only for selected codecs."
 msgstr ""
 
-#: src/profile.c:2589
+#: src/profile.c:2604
 msgid "Transcode video only for selected codecs."
 msgstr ""
 
-#: src/profile.c:2499
+#: src/profile.c:2514
 msgid "Transcode/av-lib"
 msgstr ""
 
-#: src/profile.c:2506
+#: src/profile.c:2521
 msgid "Transcoding Settings"
 msgstr ""
 
@@ -10100,7 +10111,7 @@ msgstr ""
 msgid "Tuner"
 msgstr ""
 
-#: src/wizard.c:670
+#: src/wizard.c:671
 msgid "Tuner and Network"
 msgstr ""
 
@@ -10152,7 +10163,7 @@ msgstr ""
 msgid "UHD TV"
 msgstr ""
 
-#: src/profile.c:277
+#: src/profile.c:278
 msgid "UHD: ultra high definition"
 msgstr ""
 
@@ -10160,7 +10171,7 @@ msgstr ""
 msgid "UPnP Protocol"
 msgstr ""
 
-#: src/tvhlog.c:98 src/wizard.c:826 src/dvr/dvr_db.c:4962
+#: src/tvhlog.c:98 src/wizard.c:827 src/dvr/dvr_db.c:4962
 #: src/input/mpegts/iptv/iptv.c:952 src/input/mpegts/iptv/iptv_mux.c:130
 msgid "URL"
 msgstr ""
@@ -10169,11 +10180,11 @@ msgstr ""
 msgid "URL for comparison"
 msgstr ""
 
-#: src/wizard.c:827
+#: src/wizard.c:828
 msgid "URL of the M3U playlist."
 msgstr ""
 
-#: src/main.c:922
+#: src/main.c:929
 msgid "URL with the SAT>IP server XML location"
 msgstr ""
 
@@ -10394,7 +10405,7 @@ msgstr ""
 msgid "Unicable type"
 msgstr ""
 
-#: src/profile.c:259 src/dvr/dvr_db.c:3741
+#: src/profile.c:260 src/dvr/dvr_db.c:3741
 msgid "Unimportant"
 msgstr ""
 
@@ -10440,7 +10451,7 @@ msgstr ""
 msgid "Unprocessed rating 'age' received via DVB OTA EPG."
 msgstr ""
 
-#: src/profile.c:254
+#: src/profile.c:255
 msgid "Unset (default)"
 msgstr ""
 
@@ -10530,7 +10541,7 @@ msgstr ""
 msgid "Use EPG running state"
 msgstr ""
 
-#: src/profile.c:1839 src/profile.c:2114
+#: src/profile.c:1854 src/profile.c:2129
 msgid "Use WEBM format."
 msgstr ""
 
@@ -10538,7 +10549,7 @@ msgstr ""
 msgid "Use Windows-compatible filenames"
 msgstr ""
 
-#: src/main.c:938
+#: src/main.c:945
 msgid "Use XSPF playlist instead of M3U"
 msgstr ""
 
@@ -10634,7 +10645,7 @@ msgstr ""
 msgid "Use service IDs as channel numbers"
 msgstr ""
 
-#: src/channels.c:1798
+#: src/channels.c:1799
 msgid "Use tag internally (don't expose to clients)."
 msgstr ""
 
@@ -10771,7 +10782,7 @@ msgstr ""
 msgid "Video"
 msgstr ""
 
-#: src/profile.c:2577
+#: src/profile.c:2592
 msgid "Video codec profile"
 msgstr ""
 
@@ -10798,19 +10809,19 @@ msgstr ""
 msgid "Visually impaired commentary/audio description"
 msgstr ""
 
-#: src/profile.c:1931
+#: src/profile.c:1946
 msgid "Vorbis audio"
 msgstr ""
 
-#: src/profile.c:1838 src/profile.c:2113
+#: src/profile.c:1853 src/profile.c:2128
 msgid "WEBM"
 msgstr ""
 
-#: src/profile.c:2313
+#: src/profile.c:2328
 msgid "WEBM/av-lib"
 msgstr ""
 
-#: src/profile.c:2308
+#: src/profile.c:2323
 msgid "WEBM/built-in"
 msgstr ""
 
@@ -11122,7 +11133,7 @@ msgstr ""
 msgid "hrs"
 msgstr ""
 
-#: src/main.c:1001
+#: src/main.c:1008
 #, c-format
 msgid "invalid option specified [%s]"
 msgstr ""
@@ -11207,7 +11218,7 @@ msgstr ""
 msgid "on: Use variable bit rate"
 msgstr ""
 
-#: src/main.c:1010
+#: src/main.c:1017
 #, c-format
 msgid "option %s requires a value"
 msgstr ""
@@ -11261,7 +11272,7 @@ msgstr ""
 msgid "towards project operating costs."
 msgstr ""
 
-#: src/main.c:971
+#: src/main.c:978
 msgid "tsfile input (mux file)"
 msgstr ""
 
