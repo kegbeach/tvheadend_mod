@@ -579,17 +579,13 @@ service_find_instance
   }
 
   /* kegbeach: start service randomization logic */
-  if (pro->pro_rndservice) {
-    int randy, bobandy;
+  if (pro && pro->pro_rndservice) {
+    service_instance_t *candidate;
+    unsigned int seen = 0;
 
-    bobandy = random() % 99 + 1;
-    si = TAILQ_FIRST(sil);
-
-    for (randy = 1; randy <= bobandy; randy++) {
-      si = TAILQ_NEXT(si, si_link);
-        if (si == NULL) {
-          si = TAILQ_FIRST(sil);
-        }
+    TAILQ_FOREACH(candidate, sil, si_link) {
+      if (random() % ++seen == 0)
+        si = candidate;
     }
   }
   /* kegbeach: end service randomization logic */
