@@ -1,8 +1,8 @@
 build.*
 .config.mk
+node_modules/
 
 debian/debhelper-build-stamp
-filelist.txt
 
 src/version.c
 src/tvh_locale_inc.c
@@ -63,3 +63,6 @@ Desktop.ini
 #macOS files
 .DS_Store
 _codeql_detected_source_root
+
+# Claude Code local workspace (lock files, settings, etc.)
+.claude/

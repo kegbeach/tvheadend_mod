@@ -320,10 +320,10 @@ const char *
 access_get_theme(access_t *a)
 {
   if (a == NULL)
-    return "blue";
+    return "auto";
   if (tvh_str_default(a->aa_theme, NULL) == NULL) {
     if (tvh_str_default(config.theme_ui, NULL) == NULL)
-      return "blue";
+      return "auto";
     return config.theme_ui;
   }
   return a->aa_theme;
@@ -1507,8 +1507,9 @@ htsmsg_t *
 theme_get_ui_list ( void *p, const char *lang )
 {
   static struct strtab_str tab[] = {
-    { N_("Blue"),     "blue"  },
-    { N_("Gray"),     "gray"  },
+    { N_("Auto"),     "auto"  },
+    { N_("Light"),    "light" },
+    { N_("Dark"),     "dark"  },
     { N_("Access"),   "access" },
   };
   return strtab2htsmsg_str(tab, 1, lang);
@@ -2583,8 +2584,23 @@ access_init(int createdefault, int noacl)
   if((m = hts_settings_load("superuser")) != NULL) {
     s = htsmsg_get_str(m, "username");
     superuser_username = s ? strdup(s) : NULL;
-    s = htsmsg_get_str(m, "password");
-    superuser_password = s ? strdup(s) : NULL;
+    /* Prefer the obfuscated form (password2, the same reversible "TVHeadend-
+     * Hide-" base64 scheme used for normal user accounts); fall back to a
+     * plaintext password so existing superuser files keep working. */
+    s = htsmsg_get_str(m, "password2");
+    if (s && s[0]) {
+      char buf[300];
+      int l = base64_decode((uint8_t *)buf, s, sizeof(buf) - 1);
+      if (l >= 15) {
+        buf[l] = '\0';
+        if (!strncmp(buf, "TVHeadend-Hide-", 15))
+          superuser_password = strdup(buf + 15);
+      }
+    }
+    if (superuser_password == NULL) {
+      s = htsmsg_get_str(m, "password");
+      superuser_password = s ? strdup(s) : NULL;
+    }
     htsmsg_destroy(m);
   }
 }

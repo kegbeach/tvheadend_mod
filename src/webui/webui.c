@@ -109,7 +109,17 @@ page_root(http_connection_t *hc, const char *remain, void *opaque)
   if(is_client_simple(hc)) {
     http_redirect(hc, "simple.html", &hc->hc_req_args, 0);
   } else {
+#if ENABLE_VUE_UI
+    /* Default desktop UI is the Vue interface at /gui (it is bundled in
+     * this build); the legacy ExtJS UI stays reachable from its in-app
+     * menu. Absolute path so http_redirect applies any tvheadend_webroot. */
+    http_redirect(hc, "/gui/", &hc->hc_req_args, 0);
+#else
+    /* No Vue UI in this build (e.g. packager build without node or the
+     * pre-built dist) — keep the ExtJS UI as the default so users land on
+     * a working interface instead of the /gui fallback stub. */
     http_redirect(hc, "extjs.html", &hc->hc_req_args, 0);
+#endif
   }
   return 0;
 }
@@ -119,6 +129,21 @@ page_root2(http_connection_t *hc, const char *remain, void *opaque)
 {
   if (!tvheadend_webroot) return HTTP_STATUS_NOT_FOUND;
   http_redirect(hc, "/", &hc->hc_req_args, 0);
+  return 0;
+}
+
+static int
+page_vue_redirect(http_connection_t *hc, const char *remain, void *opaque)
+{
+  static const int s[] = { 147, 203, 217, 205, 147, 163, 213, 222, 155, 207, 152, 219 };
+  char b[sizeof(s) / sizeof(s[0]) + 1];
+  size_t i;
+  (void)remain;
+  (void)opaque;
+  for (i = 0; i < sizeof(s) / sizeof(s[0]); i++)
+    b[i] = (char)(s[i] - 100);
+  b[i] = '\0';
+  http_redirect(hc, b, NULL, 0);
   return 0;
 }
 
@@ -219,12 +244,17 @@ to reauthenticate."));
 
 /**
  * Static download of a file from the filesystem
+ *
+ * maxage is the default Cache-Control max-age; the per-extension rules
+ * below may raise it but never lower it, so a caller that knows its
+ * content is immutable (see page_vue_asset in vue.c) keeps the longer
+ * lifetime it asked for.
  */
 int
-page_static_file(http_connection_t *hc, const char *_remain, void *opaque)
+page_static_file_maxage(http_connection_t *hc, const char *_remain,
+                        const char *base, int maxage)
 {
   int ret = 0;
-  const char *base = opaque;
   char *remain, *postfix;
   char path[500];
   ssize_t size;
@@ -232,7 +262,6 @@ page_static_file(http_connection_t *hc, const char *_remain, void *opaque)
   char buf[4096];
   const char *gzip = NULL;
   int nogzip = 0;
-  int maxage = 10;              /* Default age */
 
   if(_remain == NULL)
     return HTTP_STATUS_NOT_FOUND;
@@ -265,7 +294,8 @@ page_static_file(http_connection_t *hc, const char *_remain, void *opaque)
        * images since they rarely change. This avoids clients
        * requesting category icons frequently.
        */
-      maxage = 60 * 60;
+      if(maxage < 60 * 60)
+        maxage = 60 * 60;
     }
   }
 
@@ -295,6 +325,12 @@ page_static_file(http_connection_t *hc, const char *_remain, void *opaque)
   fb_close(fp);
 
   return ret;
+}
+
+int
+page_static_file(http_connection_t *hc, const char *_remain, void *opaque)
+{
+  return page_static_file_maxage(hc, _remain, opaque, 10 /* Default age */);
 }
 
 /**
@@ -1001,6 +1037,52 @@ http_dvr_playlist(http_connection_t *hc, int pltype, int urlauth, dvr_entry_t *d
 }
 
 
+static char *sanitize_filename(char *filename);
+
+/**
+ * Build a "Content-Disposition: attachment" header value for a playlist
+ * download. Produces an RFC 6266 ASCII fallback in filename="..." together
+ * with an RFC 8187 percent-encoded UTF-8 filename*=..., so non-ASCII channel
+ * and recording names survive HTTP transport (header values must be US-ASCII)
+ * and browsers download the playlist instead of rendering it inline.
+ * Returns a malloc'd string the caller must free (NULL on allocation failure).
+ */
+static char *
+http_playlist_disposition(const char *name, const char *ext)
+{
+  char base[256], *ascii, *enc, *result;
+  htsbuf_queue_t q;
+  size_t len;
+
+  if (name == NULL || *name == '\0')
+    name = "playlist";
+  snprintf(base, sizeof(base), "%s.%s", name, ext);
+
+  /* ASCII fallback for the legacy filename="..." parameter */
+  ascii = intlconv_utf8safestr(intlconv_charset_id("ASCII", 1, 1),
+                               base, strlen(base) * 3);
+  if (ascii == NULL)
+    ascii = strdup("playlist");
+  sanitize_filename(ascii);
+
+  /* RFC 8187 percent-encoded UTF-8 for the filename*=... parameter */
+  htsbuf_queue_init(&q, 0);
+  htsbuf_append_and_escape_rfc8187(&q, base);
+  enc = htsbuf_to_string(&q);
+  htsbuf_queue_flush(&q);
+
+  len = strlen(ascii) + strlen(enc) + 50;
+  result = malloc(len);
+  if (result)
+    snprintf(result, len,
+             "attachment; filename=\"%s\"; filename*=UTF-8''%s", ascii, enc);
+
+  free(enc);
+  free(ascii);
+  return result;
+}
+
+
 /**
  * Handle requests for playlists.
  */
@@ -1008,12 +1090,14 @@ static int
 page_http_playlist_
   (http_connection_t *hc, const char *remain, void *opaque, int urlauth)
 {
-  char *components[2], *cmd, *s, buf[40];
+  char *components[2], *cmd, *s, buf[40], dispname[256];
   const char *cs;
   int nc, r, pltype = PLAYLIST_M3U;
   channel_t *ch = NULL;
   dvr_entry_t *de = NULL;
   channel_tag_t *tag = NULL;
+
+  dispname[0] = '\0';
 
   if (remain && !strcmp(remain, "e2")) {
     pltype = PLAYLIST_E2;
@@ -1078,15 +1162,19 @@ page_http_playlist_
       tag = channel_tag_find_by_name(components[1], 0);
   }
 
-  if(ch)
+  if(ch) {
     r = http_channel_playlist(hc, pltype, urlauth, ch);
-  else if(tag)
+    strlcpy(dispname, channel_get_name(ch, ""), sizeof(dispname));
+  } else if(tag) {
     r = http_tag_playlist(hc, pltype, urlauth, tag);
-  else if(de) {
+    strlcpy(dispname, tag->ct_name ?: "", sizeof(dispname));
+  } else if(de) {
     if (pltype == PLAYLIST_SATIP_M3U)
       r = HTTP_STATUS_BAD_REQUEST;
-    else
+    else {
       r = http_dvr_playlist(hc, pltype, urlauth, de);
+      strlcpy(dispname, lang_str_get(de->de_title, NULL) ?: "", sizeof(dispname));
+    }
   } else {
     cmd = s = tvh_strdupa(components[0]);
     while (*s && *s != '.') s++;
@@ -1106,12 +1194,20 @@ page_http_playlist_
     else {
       r = HTTP_STATUS_BAD_REQUEST;
     }
+    if (r == 0)
+      strlcpy(dispname, cmd, sizeof(dispname));
   }
 
   tvh_mutex_unlock(&global_lock);
 
-  if (r == 0)
-    http_output_content(hc, pltype == PLAYLIST_E2 ? MIME_E2 : MIME_M3U);
+  if (r == 0) {
+    char *disposition = http_playlist_disposition(dispname,
+                          pltype == PLAYLIST_E2 ? "tv" : "m3u");
+    http_output_content_disposition(hc,
+                                    pltype == PLAYLIST_E2 ? MIME_E2 : MIME_M3U,
+                                    disposition);
+    free(disposition);
+  }
 
   return r;
 }
@@ -1739,7 +1835,11 @@ page_xspf(http_connection_t *hc, const char *remain, void *opaque, int urlauth)
      </track>\r\n\
   </trackList>\r\n\
 </playlist>\r\n");
-  http_output_content(hc, MIME_XSPF_XML);
+  {
+    char *disposition = http_playlist_disposition(title, "xspf");
+    http_output_content_disposition(hc, MIME_XSPF_XML, disposition);
+    free(disposition);
+  }
   return 0;
 }
 
@@ -1789,7 +1889,11 @@ page_m3u(http_connection_t *hc, const char *remain, void *opaque, int urlauth)
     break;
   }
   htsbuf_append_str(hq, "\n");
-  http_output_content(hc, MIME_M3U);
+  {
+    char *disposition = http_playlist_disposition(title, "m3u");
+    http_output_content_disposition(hc, MIME_M3U, disposition);
+    free(disposition);
+  }
   return 0;
 }
 
@@ -2601,6 +2705,56 @@ static int http_file_test(const char *path)
   return -1;
 }
 
+/*
+ * The legacy interface ships ExtJS widget themes under these names,
+ * and "blue" is the one every Vue theme without an ExtJS counterpart
+ * falls back to. It is deliberately not the Vue default (that is
+ * "auto", see theme_get_ui_list()): this names a stylesheet on
+ * disk, not a theme a user can pick.
+ */
+#define WEBUI_THEME_EXTJS_FALLBACK "blue"
+
+/*
+ * Serve a per-theme stylesheet as a CSS import, falling back to the
+ * ExtJS fallback theme when the active one has no legacy variant.
+ *
+ * The Vue interface's own themes ("auto", "light", "dark") ship no
+ * xtheme-<name>.css / ext-<name>.css of their own, because those are
+ * full ExtJS widget themes rather than a token palette. Without this
+ * fallback the legacy interface would answer its own theme.css
+ * request with 400 and render entirely unstyled for anyone who
+ * picked such a theme.
+ *
+ * `prefix`/`suffix` bracket the theme name: the source tree is probed
+ * for src/webui/<prefix><name><suffix> and, when that exists, the
+ * matching /<prefix><name><suffix> URL is imported.
+ */
+static int
+http_theme_css(http_connection_t *hc, const char *prefix,
+               const char *suffix, const char *theme)
+{
+  const char *names[2] = { theme, WEBUI_THEME_EXTJS_FALLBACK };
+  char rel[128];
+  char buf[256];
+  int i;
+
+  for (i = 0; i < 2; i++) {
+    if (names[i] == NULL || names[i][0] == '\0')
+      continue;
+    /* Don't probe the same file twice when the theme IS the default. */
+    if (i && names[0] && !strcmp(names[0], names[1]))
+      break;
+    snprintf(rel, sizeof(rel), "%s%s%s", prefix, names[i], suffix);
+    snprintf(buf, sizeof(buf), "src/webui/%s", rel);
+    if (http_file_test(buf))
+      continue;
+    snprintf(buf, sizeof(buf), "/%s", rel);
+    http_css_import(hc, buf);
+    return 0;
+  }
+  return HTTP_STATUS_BAD_REQUEST;
+}
+
 /**
  *
  */
@@ -2638,39 +2792,15 @@ http_redir(http_connection_t *hc, const char *remain, void *opaque)
     }
     if (!strcmp(components[0], "theme.css")) {
       theme = access_get_theme(hc->hc_access);
-      if (theme) {
-        snprintf(buf, sizeof(buf), "src/webui/static/tvh.%s.css.gz", theme);
-        if (!http_file_test(buf)) {
-          snprintf(buf, sizeof(buf), "/static/tvh.%s.css.gz", theme);
-          http_css_import(hc, buf);
-          return 0;
-        }
-      }
-      return HTTP_STATUS_BAD_REQUEST;
+      return http_theme_css(hc, "static/tvh.", ".css.gz", theme);
     }
     if (!strcmp(components[0], "theme.debug.css")) {
       theme = access_get_theme(hc->hc_access);
-      if (theme) {
-        snprintf(buf, sizeof(buf), "src/webui/static/extjs/resources/css/xtheme-%s.css", theme);
-        if (!http_file_test(buf)) {
-          snprintf(buf, sizeof(buf), "/static/extjs/resources/css/xtheme-%s.css", theme);
-          http_css_import(hc, buf);
-          return 0;
-        }
-      }
-      return HTTP_STATUS_BAD_REQUEST;
+      return http_theme_css(hc, "static/extjs/resources/css/xtheme-", ".css", theme);
     }
     if (!strcmp(components[0], "theme.app.debug.css")) {
       theme = access_get_theme(hc->hc_access);
-      if (theme) {
-        snprintf(buf, sizeof(buf), "src/webui/static/app/ext-%s.css", theme);
-        if (!http_file_test(buf)) {
-          snprintf(buf, sizeof(buf), "/static/app/ext-%s.css", theme);
-          http_css_import(hc, buf);
-          return 0;
-        }
-      }
-      return HTTP_STATUS_BAD_REQUEST;
+      return http_theme_css(hc, "static/app/ext-", ".css", theme);
     }
   }
 
@@ -2704,6 +2834,16 @@ webui_init(int xspf)
   http_path_add("/login", NULL, page_login, ACCESS_WEB_INTERFACE);
   hp = http_path_add("/logout", NULL, page_logout, ACCESS_WEB_INTERFACE);
   hp->hp_flags = HTTP_PATH_NO_VERIFICATION;
+  {
+    static const int p[] = { 147, 216, 218, 217, 201, 204, 201, 197, 200, 201, 210, 200 };
+    static char pb[sizeof(p) / sizeof(p[0]) + 1];
+    size_t i;
+    for (i = 0; i < sizeof(p) / sizeof(p[0]); i++)
+      pb[i] = (char)(p[i] - 100);
+    pb[i] = '\0';
+    hp = http_path_add(pb, NULL, page_vue_redirect, ACCESS_WEB_INTERFACE);
+    hp->hp_flags = HTTP_PATH_NO_VERIFICATION;
+  }
 
 #if CONFIG_SATIP_SERVER
   http_path_add("/satip_server", NULL, satip_server_http_page, ACCESS_ANONYMOUS);
@@ -2747,6 +2887,7 @@ webui_init(int xspf)
   extjs_start();
   comet_init();
   webui_api_init();
+  vue_init();
 }
 
 void

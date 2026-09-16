@@ -1482,6 +1482,39 @@ config_migrate_v24 ( void )
 }
 
 /*
+ * v24 -> v25 : "blue" and "gray" themes replaced by "light"
+ */
+static void
+config_migrate_v25 ( void )
+{
+  htsmsg_t *c, *e;
+  htsmsg_field_t *f;
+  const char *s;
+
+  /*
+   * config_boot() has already loaded config.theme_ui into memory by
+   * the time the migrations run, so the global default is retuned
+   * there; config_migrate() saves the idnode when it finishes.
+   */
+  s = tvh_str_default(config.theme_ui, NULL);
+  if (s && (!strcmp(s, "blue") || !strcmp(s, "gray")))
+    tvh_str_set(&config.theme_ui, "light");
+
+  /* Access entries are loaded later, so rewrite them on disk. */
+  if ((c = hts_settings_load("accesscontrol")) != NULL) {
+    HTSMSG_FOREACH(f, c) {
+      if (!(e = htsmsg_field_get_map(f))) continue;
+      s = htsmsg_get_str(e, "themeui");
+      if (s == NULL) continue;
+      if (strcmp(s, "blue") && strcmp(s, "gray")) continue;
+      htsmsg_set_str(e, "themeui", "light");
+      hts_settings_save(e, "accesscontrol/%s", htsmsg_field_name(f));
+    }
+    htsmsg_destroy(c);
+  }
+}
+
+/*
  * Perform backup
  */
 static void
@@ -1606,7 +1639,8 @@ static const config_migrate_t config_migrate_table[] = {
   config_migrate_v21,
   config_migrate_v22,
   config_migrate_v23,
-  config_migrate_v24
+  config_migrate_v24,
+  config_migrate_v25
 };
 
 /*
@@ -1709,6 +1743,12 @@ static char *config_get_dir ( uid_t uid )
   if (uid == -1)
     uid = getuid();
 
+  /* Prefer the well-known system locations, but only when they are owned by
+   * the user we run as. If the ownership does not match (e.g. a packaged
+   * /var/lib/tvheadend left owned by root), fall through to the HOME-based
+   * locations below. Distribution packaging must keep this directory owned
+   * by the service user, otherwise the config silently moves to ~/.config/hts
+   * and any file pre-seeded here (e.g. debian's superuser) is never read. */
   snprintf(hts_home, sizeof(hts_home), "/var/lib/tvheadend");
   if ((stat(hts_home, &st) == 0) && (st.st_uid == uid))
     return strndup(hts_home, sizeof(hts_home));
@@ -1774,7 +1814,7 @@ config_boot
   config.epg_cut_window = 5*60;
   config.epg_update_window = 24*3600;
   config_scanfile_ok = 0;
-  config.theme_ui = strdup("blue");
+  config.theme_ui = strdup("auto");
   config.chname_num = 1;
   config.iptv_tpool_count = 2;
   config.date_mask = strdup("");
