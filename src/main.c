@@ -785,13 +785,6 @@ mainloop(void)
 int
 main(int argc, char **argv)
 {
-  /* kegbeach: start service randomization logic */
-  struct timespec seedinit;
-
-  timespec_get(&seedinit, TIME_UTC);
-  srandom(seedinit.tv_nsec ^ seedinit.tv_sec);
-  /* kegbeach: end service randomization logic */
-	
   int i;
   sigset_t set;
 #if ENABLE_MPEGTS
